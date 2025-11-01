@@ -27,6 +27,23 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 </div>
 <div class="timeline-item">
   <div class="timeline-logo">
+    <a href="https://www.anthropic.com/" target="_blank" rel="noopener">
+      <img src="{{ '/static/images/timeline/anthropic.png' | relative_url }}" alt="Anthropic logo" loading="lazy">
+    </a>
+  </div>
+<div class="timeline-content">
+<div class="timeline-heading">
+<span class="timeline-organization">Anthropic</span>
+<span class="timeline-duration"><strong>Nov 2025 – Present</strong></span>
+</div>
+<p class="timeline-role">Research Engineer, AI Safety</p>
+<p class="timeline-description">
+          Working on alignment and reliability of frontier models.
+        </p>
+</div>
+</div>
+<div class="timeline-item">
+  <div class="timeline-logo">
     <a href="https://umich.edu/" target="_blank" rel="noopener">
       <img src="{{ '/static/images/timeline/university-of-michigan.png' | relative_url }}" alt="University of Michigan logo" loading="lazy">
     </a>
@@ -45,20 +62,6 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
           </i>
 </p>
 <div class="timeline-subitems">
-<div class="timeline-subitem">
-  <div class="timeline-subitem-logo">
-    <a href="https://www.anthropic.com/" target="_blank" rel="noopener">
-      <img src="{{ '/static/images/timeline/anthropic.png' | relative_url }}" alt="Anthropic logo" loading="lazy">
-    </a>
-  </div>
-<div class="timeline-subitem-content">
-<div class="timeline-subitem-heading">
-<span class="timeline-subitem-organization">Anthropic</span>
-<span class="timeline-subitem-duration">Nov 2025 – Present</span>
-</div>
-<p class="timeline-subitem-role">AI Safety Fellow</p>
-</div>
-</div>
 <div class="timeline-subitem">
   <div class="timeline-subitem-logo">
     <a href="https://waymo.com/" target="_blank" rel="noopener">
