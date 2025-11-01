@@ -1,131 +1,49 @@
-/* Custom Social Icons for the existing minimal theme sidebar */
+/* Custom Social Icons aligned as icon row */
 
-/* Style the JavaScript-injected social links */
+
+
 .sidebar-social-links {
-  margin-top: 1rem;
-}
-
-.sidebar-social-links ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.sidebar-social-links li {
-  margin-bottom: 0.55rem;
-}
-
-.sidebar-social-links li:last-child {
-  margin-bottom: 0;
+  margin-top: 1.4rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
 }
 
 .sidebar-social-links a {
-  display: flex;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
   align-items: center;
-  text-decoration: none;
-  color: #333;
-  padding: 0.4rem 0.5rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  justify-content: center;
+  color: #2563eb;
+  transition: transform var(--transition-base), color var(--transition-base);
 }
 
 .sidebar-social-links a:hover {
-  background-color: rgba(0,0,0,0.04);
-  transform: translateX(3px);
-  color: #007acc;
+  transform: translateY(-2px);
+  color: #1d4ed8;
 }
 
 .sidebar-social-links i {
-  width: 20px;
-  margin-right: 10px;
-  font-size: 16px;
-  text-align: center;
+  font-size: 1.1rem;
 }
 
-/* Font Awesome 6 specific styling */
-.sidebar-social-links .fa-solid {
-  font-family: "Font Awesome 6 Free";
-  font-weight: 900;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.sidebar-social-links .fa-brands {
-  font-family: "Font Awesome 6 Brands";
-  font-weight: 400;
-}
-
-.sidebar-social-links .fa-regular {
-  font-family: "Font Awesome 6 Free";
-  font-weight: 400;
-}
-
-.sidebar-social-links span {
-  font-weight: 500;
-}
-
-/* Social icon colors - updated for fa-brands */
-.sidebar-social-links .fa-envelope {
-  color: #d44638;
-}
-
-.sidebar-social-links .fa-github {
-  color: #333;
-}
-
-.sidebar-social-links .fa-linkedin {
-  color: #0077b5;
-}
-
-.sidebar-social-links .fa-twitter {
-  color: #1da1f2;
-}
-
-.sidebar-social-links .fa-graduation-cap {
-  color: #4285f4;
-}
-
-.sidebar-social-links .fa-file-lines {
-  color: #666;
-}
-
-/* Hover effects for icon colors */
-.sidebar-social-links a:hover .fa-envelope {
-  color: #b31b1b;
-}
-
-.sidebar-social-links a:hover .fa-github {
-  color: #000;
-}
-
-.sidebar-social-links a:hover .fa-linkedin {
-  color: #005885;
-}
-
-.sidebar-social-links a:hover .fa-twitter {
-  color: #0c7abf;
-}
-
-.sidebar-social-links a:hover .fa-graduation-cap {
-  color: #3367d6;
-}
-
-.sidebar-social-links a:hover .fa-file-lines {
-  color: #333;
-}
-
-/* Responsive design */
 @media (max-width: 768px) {
   .sidebar-social-links {
-    margin-top: 1rem;
-  }
-  
-  .sidebar-social-links a {
-    padding: 0.35rem 0.45rem;
-  }
-  
-  .sidebar-social-links i {
-    width: 18px;
-    margin-right: 8px;
-    font-size: 14px;
+    gap: 0.55rem;
+    margin-top: 1.1rem;
   }
 }
 
