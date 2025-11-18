@@ -7,7 +7,9 @@ title: Yash Patel
 <span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="{{ '/blog/' | relative_url }}">Blog</a>
 </p>
 
-Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmonic</a> with significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. I am most excited about using ML for accelerating scientific discovery. 
+Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmonic</a>. I have previously worked at <a href="#anthropic">Anthropic</a>, <a href="#waymo">Waymo</a>, and <a href="#meta">Meta</a> and studied at the <a href="#university-of-michigan">University of Michigan (PhD)</a> and <a href="#princeton">Princeton University (BA)</a>.
+
+I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. I am most excited in working on using ML for accelerating scientific discovery. 
 
 <div class="timeline-section">
 <div class="timeline">
@@ -25,7 +27,7 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 <p class="timeline-role">Research Engineer</p>
 </div>
 </div>
-<div class="timeline-item">
+<div class="timeline-item" id="anthropic">
   <div class="timeline-logo">
     <a href="https://www.anthropic.com/" target="_blank" rel="noopener">
       <img src="{{ '/static/images/timeline/anthropic.png' | relative_url }}" alt="Anthropic logo" loading="lazy">
@@ -38,11 +40,11 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 </div>
 <p class="timeline-role">Research Engineer, AI Safety</p>
 <p class="timeline-description">
-          Working on alignment and reliability of frontier models.
+          Working on the safety of frontier models, including the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a>. Selected as one of 32 researchers out of 2,000+ applicants.
         </p>
 </div>
 </div>
-<div class="timeline-item">
+<div class="timeline-item" id="university-of-michigan">
   <div class="timeline-logo">
     <a href="https://umich.edu/" target="_blank" rel="noopener">
       <img src="{{ '/static/images/timeline/university-of-michigan.png' | relative_url }}" alt="University of Michigan logo" loading="lazy">
@@ -62,7 +64,7 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
           </i>
 </p>
 <div class="timeline-subitems">
-<div class="timeline-subitem">
+<div class="timeline-subitem" id="waymo">
   <div class="timeline-subitem-logo">
     <a href="https://waymo.com/" target="_blank" rel="noopener">
       <img src="{{ '/static/images/timeline/waymo.png' | relative_url }}" alt="Waymo logo" loading="lazy">
@@ -99,7 +101,7 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 </div>
 </div>
 </div>
-<div class="timeline-item">
+<div class="timeline-item" id="meta">
   <div class="timeline-logo">
     <a href="https://www.meta.com/" target="_blank" rel="noopener">
       <img src="{{ '/static/images/timeline/meta.png' | relative_url }}" alt="Meta logo" loading="lazy">
@@ -122,7 +124,7 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 </p>
 </div>
 </div>
-<div class="timeline-item">
+<div class="timeline-item" id="princeton">
   <div class="timeline-logo">
     <a href="https://www.princeton.edu/" target="_blank" rel="noopener">
       <img src="{{ '/static/images/timeline/princeton.png' | relative_url }}" alt="Princeton University / Hyperloop logo" loading="lazy">
