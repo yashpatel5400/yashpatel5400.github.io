@@ -7,7 +7,7 @@ title: Yash Patel
 <span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="{{ '/blog/' | relative_url }}">Blog</a>
 </p>
 
-Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmonic</a>. I have previously worked at <a href="#anthropic">Anthropic</a>, <a href="#waymo">Waymo</a>, and <a href="#meta">Meta</a> and studied at the <a href="#university-of-michigan">University of Michigan (PhD)</a> and <a href="#princeton">Princeton University (BA)</a>.
+Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmonic</a>. I have previously worked as a research engineer at <a href="#anthropic">Anthropic</a>, <a href="#waymo">Waymo</a>, and a senior software engineer at <a href="#meta">Meta</a> and studied at the <a href="#university-of-michigan">University of Michigan (PhD)</a> and <a href="#princeton">Princeton University (BA)</a>.
 
 I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. I am most excited in working on using ML for accelerating scientific discovery. 
 
@@ -38,7 +38,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <span class="timeline-organization">Anthropic</span>
 <span class="timeline-duration"><strong>Nov 2025 – Present</strong></span>
 </div>
-<p class="timeline-role">Research Engineer, AI Safety</p>
+<p class="timeline-role">Research Engineer, AI Safety Fellowship</p>
 <p class="timeline-description">
           Working on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a>. Selected as one of 32 researchers out of 2,000+ applicants.
         </p>
