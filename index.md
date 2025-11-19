@@ -40,7 +40,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-role">Research Engineer, AI Safety</p>
 <p class="timeline-description">
-          Working on the safety of frontier models, including the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a>. Selected as one of 32 researchers out of 2,000+ applicants.
+          Working on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a>. Selected as one of 32 researchers out of 2,000+ applicants.
         </p>
 </div>
 </div>
