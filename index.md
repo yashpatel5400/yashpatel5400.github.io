@@ -477,4 +477,13 @@ Outside of research and programming, I really enjoy [reading](https://www.goodre
 <div class="lift-label">Deadlift</div>
 </a>
 </div>
+<div class="lift-card">
+<a class="lift-link" href="https://drive.google.com/file/d/1AHlMCPRxBO28mJGfPC3YFpm7nGR5ewRp/view?usp=sharing" rel="noopener" target="_blank">
+<div class="lift-circle">
+<img alt="Pull-ups icon" src="{{ '/static/images/timeline/pull-ups.png' | relative_url }}"/>
+<span class="lift-number">+120</span>
+</div>
+<div class="lift-label">Pull-ups</div>
+</a>
+</div>
 </div>

@@ -371,9 +371,15 @@
 .lifting-stats {
   display: flex;
   justify-content: center;
-  gap: 2.5rem;
+  gap: 2rem;
   margin: 2.5rem 0 3rem;
   flex-wrap: wrap;
+}
+
+@media (min-width: 720px) {
+  .lifting-stats {
+    flex-wrap: nowrap;
+  }
 }
 
 .lift-card {
