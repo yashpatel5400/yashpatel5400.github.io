@@ -235,6 +235,23 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
               </p>
 </div>
 </div>
+<div class="timeline-subitem">
+  <div class="timeline-subitem-logo">
+    <a href="https://www.rutgers.edu/" target="_blank" rel="noopener">
+      <img src="{{ '/static/images/timeline/rutgers.png' | relative_url }}" alt="Rutgers University logo" loading="lazy">
+    </a>
+  </div>
+<div class="timeline-subitem-content">
+<div class="timeline-subitem-heading">
+<span class="timeline-subitem-organization">Rutgers University</span>
+<span class="timeline-subitem-duration">Jun 2012 – Aug 2012</span>
+</div>
+<p class="timeline-subitem-role">Research Intern · <a class="timeline-mentor" href="https://sasn.rutgers.edu/michael-shiflett" target="_blank" rel="noopener">Michael Shiflett</a></p>
+<p class="timeline-subitem-note">
+                Prepared brain slices and performed data analysis to investigate the role of axonal guidance in the social withdrawal of mice with NRP2 gene mutations.
+              </p>
+</div>
+</div>
 </div>
 </div>
 </div>
