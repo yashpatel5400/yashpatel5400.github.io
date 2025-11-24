@@ -483,7 +483,7 @@ Outside of research and programming, I really enjoy [reading](https://www.goodre
 <img alt="Pull-ups icon" src="{{ '/static/images/timeline/pull-ups.png' | relative_url }}"/>
 <span class="lift-number">+120</span>
 </div>
-<div class="lift-label">Pull-ups</div>
+<div class="lift-label">Pull-up</div>
 </a>
 </div>
 </div>
