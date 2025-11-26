@@ -65,7 +65,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 
           Some highlights:
           <ul class="timeline-description-list">
-          <li>Conformally Robust Decision Making [<a href="http://yashpatel5400.github.io/files/thesis_phd.pdf">PhD Thesis</a>] </li>
+          <li>Conformally Robust Decision Making [<a href="http://yashpatel5400.github.io/static/files/thesis_phd.pdf">PhD Thesis</a>] </li>
           <li>Outstanding First-Year Ph.D. Student Award (2022) </li>
           <li>Outstanding GSI Team Award (2022): Helped create the introductory <a href="https://www.ambujtewari.com/stats315-winter2022/">deep learning statistics course</a> </li>
           <li>NSF GRFP Honorable Mention (2020, 2022)</li>
