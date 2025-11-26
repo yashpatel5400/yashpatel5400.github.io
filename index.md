@@ -274,7 +274,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
     <img src="{{ '/static/images/logos/neurips.png' | relative_url }}" alt="NeurIPS logo">
   </div>
   <div class="paper-body">
-    <b><a href="https://arxiv.org/abs/2405.16246" target="_blank" rel="noopener">Conformal Prediction for Ensembles: Improving Efficiency via Score-Based Aggregation</a><a class="paper-code-link" href="https://github.com/yashpatel5400/fusioncp" target="_blank" rel="noopener">[Code]</a></b><br/>
+    <b><a href="https://arxiv.org/abs/2405.16246" target="_blank" rel="noopener">Conformal Prediction for Ensembles: Improving Efficiency via Score-Based Aggregation</a><a class="paper-code-link" href="https://github.com/yashpatel5400/fusioncp" target="_blank" rel="noopener">[Code]</a><a class="paper-code-link" href="{{ '/static/files/posters/Conformal_Prediction_for_Ensembles_Poster.pdf' | relative_url }}" target="_blank" rel="noopener">[Poster]</a></b><br/>
     <i>Neural Information Processing Systems (NeurIPS), 2025</i><br/>
     Rivera, E.O.* , <b>Patel, Y.*</b> (* equal contribution), Tewari, A.<br/>
   </div>
@@ -300,7 +300,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
     <img src="{{ '/static/images/logos/aistats.png' | relative_url }}" alt="AISTATS logo">
   </div>
   <div class="paper-body">
-    <b><a href="https://proceedings.mlr.press/v238/patel24a.html" target="_blank" rel="noopener">Conformal Contextual Robust Optimization</a><a class="paper-code-link" href="https://github.com/yashpatel5400/csi" target="_blank" rel="noopener">[Code]</a></b><br/>
+    <b><a href="https://proceedings.mlr.press/v238/patel24a.html" target="_blank" rel="noopener">Conformal Contextual Robust Optimization</a><a class="paper-code-link" href="https://github.com/yashpatel5400/csi" target="_blank" rel="noopener">[Code]</a><a class="paper-code-link" href="{{ '/static/files/posters/Conformal_Contextual_Robust_Optimization_Poster.pdf' | relative_url }}" target="_blank" rel="noopener">[Poster]</a></b><br/>
     <i>International Conference on Artificial Intelligence and Statistics (AISTATS), 2024 (<b>Oral</b>)</i><br/>
     <b>Patel, Y.</b>, Rayan, S., Tewari, A.<br/>
   </div>
@@ -382,7 +382,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
     <img src="{{ '/static/images/logos/neurips.png' | relative_url }}" alt="NeurIPS logo">
   </div>
   <div class="paper-body">
-    <b><a href="https://www.mlsb.io/papers_2022/RL_Boltzmann_Generators_for_Conformer_Generation_in_Data_Sparse_Environments.pdf" target="_blank" rel="noopener">RL Boltzmann Generators for Conformer Generation in Data-Sparse Environments</a><a class="paper-code-link" href="https://github.com/yashpatel5400/clean_idp_rl" target="_blank" rel="noopener">[Code]</a></b><br/>
+    <b><a href="https://www.mlsb.io/papers_2022/RL_Boltzmann_Generators_for_Conformer_Generation_in_Data_Sparse_Environments.pdf" target="_blank" rel="noopener">RL Boltzmann Generators for Conformer Generation in Data-Sparse Environments</a><a class="paper-code-link" href="https://github.com/yashpatel5400/clean_idp_rl" target="_blank" rel="noopener">[Code]</a><a class="paper-code-link" href="{{ '/static/files/posters/RL_Boltzmann_Generators_for_Conformer_Generation_in_Data_Sparse_Environments_Poster.pdf' | relative_url }}" target="_blank" rel="noopener">[Poster]</a></b><br/>
     <i>NeurIPS Machine Learning in Structural Biology (MLSB) Workshop, 2022</i><br/>
     <b>Patel, Y.</b>, Tewari, A.<br/>
   </div>
@@ -393,7 +393,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
     <img src="{{ '/static/images/logos/neurips.png' | relative_url }}" alt="NeurIPS logo">
   </div>
   <div class="paper-body">
-    <b><a href="https://ml4physicalsciences.github.io/2022/files/NeurIPS_ML4PS_2022_155.pdf" target="_blank" rel="noopener">Scalable Bayesian Inference for Finding Strong Gravitational Lenses</a><a class="paper-code-link" href="https://github.com/prob-ml/bliss" target="_blank" rel="noopener">[Code]</a></b><br/>
+    <b><a href="https://ml4physicalsciences.github.io/2022/files/NeurIPS_ML4PS_2022_155.pdf" target="_blank" rel="noopener">Scalable Bayesian Inference for Finding Strong Gravitational Lenses</a><a class="paper-code-link" href="https://github.com/prob-ml/bliss" target="_blank" rel="noopener">[Code]</a><a class="paper-code-link" href="{{ '/static/files/posters/Scalable_Bayesian_Inference_for_Finding_Strong_Gravitational_Lenses_Poster.pdf' | relative_url }}" target="_blank" rel="noopener">[Poster]</a></b><br/>
     <i>NeurIPS Machine Learning and the Physical Sciences Workshop, 2022</i><br/>
     <b>Patel, Y.</b>, Regier, J.<br/>
   </div>
