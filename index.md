@@ -62,6 +62,14 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
           <i>
           How can we design principled uncertainty estimates for black-box models and use such uncertainty optimally for decision-making?
           </i>
+
+          Some highlights:
+          <ul class="timeline-description-list">
+          <li>Conformally Robust Decision Making [<a href="http://yashpatel5400.github.io/files/thesis_phd.pdf">PhD Thesis</a>] </li>
+          <li>Outstanding First-Year Ph.D. Student Award (2022) </li>
+          <li>Outstanding GSI Team Award (2022): Helped create the introductory <a href="https://www.ambujtewari.com/stats315-winter2022/">deep learning statistics course</a> </li>
+          <li>NSF GRFP Honorable Mention (2020, 2022)</li>
+          </ul>
 </p>
 <div class="timeline-subitems">
 <div class="timeline-subitem" id="waymo">
@@ -143,8 +151,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <li>HyperLoop Pod Design [<a href="http://yashpatel5400.github.io/files/hyperloop.pdf">Project Report</a>]</li>
 <i>Princeton University Project Founder &amp; Lead, 2015-2017</i><br/>
 <i>2x Top 30 Team, International SpaceX HyperLoop Pod Design Competition</i><br/>
-<li>Deanonymizing Bitcoin Transactions: An Investigative Study On Large-scale Graph Clustering [<a href="http://yashpatel5400.github.io/files/deanonymization.pdf">Project Report</a>]</li>
-<i>Princeton University Senior Thesis, 2018</i><br/>
+<li>Deanonymizing Bitcoin Transactions: An Investigative Study On Large-scale Graph Clustering [<a href="http://yashpatel5400.github.io/files/deanonymization.pdf">Project Report</a>] (<i>Senior Thesis, 2018</i>)</li>
 <li>Tesla Autopilot Analysis [<a href="http://yashpatel5400.github.io/files/tesla.pdf">Project Report</a>] </li>
 <li>Neural Branch Predictor [<a href="https://yashpatel5400.github.io/neuropath/">Website</a>] [<a href="https://github.com/yashpatel5400/neuropath/">Code</a>] </li>
 </ul>
