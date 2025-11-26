@@ -151,7 +151,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <li>HyperLoop Pod Design [<a href="http://yashpatel5400.github.io/files/hyperloop.pdf">Project Report</a>]</li>
 <i>Princeton University Project Founder &amp; Lead, 2015-2017</i><br/>
 <i>2x Top 30 Team, International SpaceX HyperLoop Pod Design Competition</i><br/>
-<li>Deanonymizing Bitcoin Transactions: An Investigative Study On Large-scale Graph Clustering [<a href="http://yashpatel5400.github.io/files/deanonymization.pdf">Senior Thesis</a>]
+<li>Deanonymizing Bitcoin Transactions: An Investigative Study On Large-scale Graph Clustering [<a href="http://yashpatel5400.github.io/files/deanonymization.pdf">Senior Thesis</a>]</li>
 <li>Tesla Autopilot Analysis [<a href="http://yashpatel5400.github.io/files/tesla.pdf">Project Report</a>] </li>
 <li>Neural Branch Predictor [<a href="https://yashpatel5400.github.io/neuropath/">Website</a>] [<a href="https://github.com/yashpatel5400/neuropath/">Code</a>] </li>
 </ul>
