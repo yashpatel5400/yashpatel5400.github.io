@@ -470,7 +470,7 @@ Outside of research and programming, I really enjoy [reading](https://www.goodre
 <a class="lift-link" href="https://drive.google.com/file/d/12F486JD9CegwHDFYiVF3EKkUhkD06clw/view?usp=drive_link" rel="noopener" target="_blank">
 <div class="lift-circle">
 <img alt="Squat icon" src="{{ '/static/images/timeline/squat.png' | relative_url }}"/>
-<span class="lift-number">330</span>
+<span class="lift-number">335</span>
 </div>
 <div class="lift-label">Squat</div>
 </a>
