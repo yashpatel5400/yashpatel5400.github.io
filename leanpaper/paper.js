@@ -536,6 +536,9 @@ function formatRefLabel(label, eqNumbers = {}) {
   if (prefix === 'eqn') {
     return `Equation: ${humanizeLabel(remainder)}`;
   }
+  if (prefix === 'alg' || prefix === 'algorithm') {
+    return `Algorithm: ${humanizeLabel(remainder)}`;
+  }
   if (prefix === 'theorem') {
     return `Theorem: ${humanizeLabel(remainder)}`;
   }

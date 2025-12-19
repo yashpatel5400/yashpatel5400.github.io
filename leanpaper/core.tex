@@ -161,7 +161,7 @@ Efficient solution of this RO problem, therefore, reduces to being able to effic
     \max_{\widehat{c} \in \mathcal{C}(x)} f(w, \widehat{c})
     = \max_{k} \max_{\widehat{c} \in \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c}),
 \end{equation}
-where the maximum over a ball can be efficiently computed with traditional convex optimization techniques. This procedure is summarized in Algorithm \ref{alg:CPO-Opt}. The convergence of this procedure proceeds as follows.
+where the maximum over a ball can be efficiently computed with traditional convex optimization techniques. This procedure is summarized in \Cref{alg:CPO-Opt}. The convergence of this procedure proceeds as follows.
 
 \begin{algorithm}
   \caption{\label{alg:CPO-Opt} CPO-Opt}
@@ -180,7 +180,7 @@ where the maximum over a ball can be efficiently computed with traditional conve
 \end{algorithm}
 
 \begin{lemma}\label{lemma:cpo_convergence}
-    Let $\phi(w) := \max_{\widehat{c} \in \bigcup_{k=1}^{K} \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c})$ for $\{\widehat{c}_{k}\}_{k=1}^{K}\subset\mathcal{C}$, $\widehat{q}\in\mathbb{R}^{+}$, and $f(w, c)$ convex-concave and $L$-Lipschitz in $c$ for any fixed $w$. Let $w^{*}\in \mathcal{W}$ be a minimizer of $\phi$. For any $\epsilon > 0$, define $T := \frac{L^2 || w_0 - w^{*} ||}{\epsilon^2}$ and $\eta := \frac{|| w_0 - w^{*} ||}{L \sqrt{T}}$. Then the iterates $\{w_{t}\}_{t=0}^{T}$ returned by Algorithm \ref{alg:CPO-Opt} satisfy
+    Let $\phi(w) := \max_{\widehat{c} \in \bigcup_{k=1}^{K} \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c})$ for $\{\widehat{c}_{k}\}_{k=1}^{K}\subset\mathcal{C}$, $\widehat{q}\in\mathbb{R}^{+}$, and $f(w, c)$ convex-concave and $L$-Lipschitz in $c$ for any fixed $w$. Let $w^{*}\in \mathcal{W}$ be a minimizer of $\phi$. For any $\epsilon > 0$, define $T := \frac{L^2 || w_0 - w^{*} ||}{\epsilon^2}$ and $\eta := \frac{|| w_0 - w^{*} ||}{L \sqrt{T}}$. Then the iterates $\{w_{t}\}_{t=0}^{T}$ returned by \Cref{alg:CPO-Opt} satisfy
     \begin{equation}
         \phi\left(\frac{1}{T+1}\sum_{t=0}^{T} w_{t}\right) -  \phi(w^{*}) \le \epsilon.
     \end{equation}
@@ -228,7 +228,7 @@ where
 
 We then choose $K^{*}$ to be the inflection point, namely the $\argmin_{K} |\widehat{\ell}_K - \widehat{\ell}_{K + 1}| \leq \epsilon$ for some 
 user-specified $\epsilon$ volume tolerance. Critically, these volume estimates must be performed on a distinct subset of the data from $\mathcal{D}_{\mathcal{C}}$ 
-as exchangeability with future test points is otherwise lost in conditioning on $\mathcal{D_C}$ for selecting $K^*$ \citep{yang2021finite}. We, thus, partition $\mathcal{D}_{\mathcal{C}} := \mathcal{D}_{\mathcal{C}_1} \cup \mathcal{D}_{\mathcal{C}_2}$, using $\mathcal{D}_{\mathcal{C}_1}$ for calibration and $\mathcal{D}_{\mathcal{C}_2}$ for volume estimation, detailed in Algorithm \ref{alg:CPO}.
+as exchangeability with future test points is otherwise lost in conditioning on $\mathcal{D_C}$ for selecting $K^*$ \citep{yang2021finite}. We, thus, partition $\mathcal{D}_{\mathcal{C}} := \mathcal{D}_{\mathcal{C}_1} \cup \mathcal{D}_{\mathcal{C}_2}$, using $\mathcal{D}_{\mathcal{C}_1}$ for calibration and $\mathcal{D}_{\mathcal{C}_2}$ for volume estimation, detailed in \Cref{alg:CPO}.
 
 \begin{algorithm}
   \caption{\label{alg:VolumeEst} \textproc{VolumeEst}}
