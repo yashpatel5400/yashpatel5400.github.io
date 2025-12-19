@@ -13,6 +13,16 @@ const LATEX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/latex.js@0.12.6/dist/';
 let latexAssetsAttached = false;
 let currentPaperId = null;
 let equationNumbers = {};
+const PROOF_SOURCES = {
+  'lemma:coverage_bound': {
+    path: 'subopt.lean',
+    anchor: 'theorem coverage_bound'
+  },
+  'lemma:cpo_convergence': {
+    path: 'convergence.lean',
+    anchor: 'theorem pgd_convergence'
+  }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   const initial = resolveInitialPaper();
@@ -82,6 +92,7 @@ async function loadPaper(selection) {
     }
 
     attachCitationHandlers(bibEntries);
+    attachLemmaHandlers();
     setStatus(statusEl, '');
   } catch (err) {
     console.error(err);
@@ -476,6 +487,66 @@ function attachCitationHandlers(entries) {
   });
 }
 
+function attachLemmaHandlers() {
+  const paperEl = document.getElementById('paper-content');
+  const sidePanel = document.getElementById('side-panel-body');
+  if (!paperEl || !sidePanel) return;
+
+  paperEl.querySelectorAll('.lemma-block').forEach(block => {
+    const label = block.dataset.label;
+    if (!label) return;
+    block.style.cursor = 'pointer';
+    block.addEventListener('click', async () => {
+      sidePanel.className = 'reference-detail';
+      sidePanel.innerHTML = '<p class="muted">Loading Lean proof…</p>';
+      try {
+        const proofHtml = await loadLeanProof(label);
+        sidePanel.innerHTML = proofHtml;
+      } catch (err) {
+        sidePanel.innerHTML = `<p>Could not load Lean proof for ${label}: ${err.message}</p>`;
+        sidePanel.className = 'proof-placeholder';
+      }
+    });
+  });
+}
+
+async function loadLeanProof(label) {
+  const source = PROOF_SOURCES[label];
+  if (!source) {
+    throw new Error('No proof source configured for this label');
+  }
+
+  const res = await fetch(source.path);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${source.path} (${res.status})`);
+  }
+  const text = await res.text();
+  const snippet = extractLeanSnippet(text, source.anchor);
+
+  return `
+    <div class="reference-detail">
+      <div class="env-heading">${formatRefLabel(label)}</div>
+      <pre><code class="lean">${escapeHtml(snippet)}</code></pre>
+    </div>
+  `;
+}
+
+function extractLeanSnippet(fileText, anchor) {
+  if (!anchor) return fileText;
+  const idx = fileText.indexOf(anchor);
+  if (idx === -1) return fileText;
+  const tail = fileText.slice(idx);
+  const lines = tail.split('\n');
+  const collected = [];
+  for (const line of lines) {
+    if (/^theorem\s+/i.test(line) && collected.length > 0) break;
+    collected.push(line);
+    // stop if line contains "by" with proof term and next line blank
+    if (/^end\b/.test(line.trim())) break;
+  }
+  return collected.join('\n').trim();
+}
+
 function renderReferenceDetail(entry) {
   const title = entry.fields.title || entry.citekey;
   const authors = entry.fields.author ? formatAuthors(entry.fields.author) : '';
@@ -828,7 +899,8 @@ function wrapLemmaProof(text) {
         const anchor = labelId ? `<span id="cref-${labelId}"></span>` : '';
         const heading = `<div class="env-heading">${headingText}</div>`;
         const content = `<div class="env-body">${inner}</div>`;
-        return `${anchor}<div class="${className}">${heading}${content}</div>`;
+        const data = labelId ? ` data-label="${labelId}"` : '';
+        return `${anchor}<div class="${className}"${data}>${heading}${content}</div>`;
       });
   };
 
@@ -936,7 +1008,7 @@ function resetPanels() {
     paperEl.innerHTML = '<p class="muted">Loading main paper…</p>';
   }
   if (sidePanel) {
-    sidePanel.innerHTML = '<p>Click a citation to see the reference here.</p><p>We’ll also surface Lean snippets in this panel soon.</p>';
+    sidePanel.innerHTML = '';
     sidePanel.className = 'proof-placeholder';
   }
 }
