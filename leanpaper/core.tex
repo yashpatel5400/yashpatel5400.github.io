@@ -1,0 +1,261 @@
+% \documentclass{article}
+% \usepackage{PRIMEarxiv}
+
+\documentclass[twoside]{article}
+% \usepackage{aistats2024}
+% If your paper is accepted, change the options for the package
+% aistats2024 as follows:
+%
+\usepackage[accepted]{aistats2024}
+%
+% This option will print headings for the title of your paper and
+% headings for the authors names, plus a copyright note at the end of
+% the first column of the first page.
+
+% If you set papersize explicitly, activate the following three lines:
+%\special{papersize = 8.5in, 11in}
+%\setlength{\pdfpageheight}{11in}
+%\setlength{\pdfpagewidth}{8.5in}
+
+% If you use natbib package, activate the following three lines:
+%\usepackage[round]{natbib}
+%\renewcommand{\bibname}{References}
+%\renewcommand{\bibsection}{\subsubsection*{\bibname}}
+
+% If you use BibTeX in apalike style, activate the following line:
+%\bibliographystyle{apalike}
+
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{float}
+\usepackage{dsfont}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{adjustbox}
+\usepackage{amsmath,amsthm,amssymb,amsfonts, fancyhdr, color, comment, graphicx, environ}
+\usepackage[citestyle=authoryear,natbib=true,backend=bibtex,doi=false,isbn=false,url=false,eprint=false]{biblatex}
+\renewcommand\nameyeardelim{, }
+\addbibresource{refs.bib}
+
+\usepackage{mathtools}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{assumption}{Assumption}
+\newtheorem{conjecture}{Conjecture}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\logit}{logit}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\begin{document}
+
+\twocolumn[
+
+\title{Conformal Contextual Robust Optimization}
+
+\author{ Yash Patel \And Sahana Rayan \And  Ambuj Tewari }
+
+\begin{abstract}
+  Data-driven approaches to predict-then-optimize decision-making problems seek to mitigate the risk of uncertainty region misspecification in safety-critical settings. Current approaches, however, suffer from considering overly conservative uncertainty regions, often resulting in suboptimal decision-making. To this end, we propose Conformal-Predict-Then-Optimize (CPO), a framework for leveraging highly informative, nonconvex conformal prediction regions over high-dimensional spaces based on conditional generative models, which have the desired distribution-free coverage guarantees. Despite guaranteeing robustness, such black-box optimization procedures alone inspire little confidence owing to the lack of explanation of why a particular decision was found to be optimal. We, therefore, augment CPO to additionally provide semantically meaningful visual summaries of the uncertainty regions to give qualitative intuition for the optimal decision. We highlight the CPO framework by demonstrating results on a suite of simulation-based inference benchmark tasks and a vehicle routing task based on probabilistic weather prediction.
+\end{abstract}
+
+\section{INTRODUCTION}\label{section:intro}
+Predict-then-optimize or contextual robust optimization problems are of long-standing interest in safety-critical settings where decision-making happens under uncertainty \citep{sun2023predict, elmachtoub2022smart, elmachtoub2020decision, pervsak2023contextual}. In traditional robust optimization, results are made to be robust to distributions anticipated to be present upon deployment \citep{ben2009robust, beyer2007robust}. Since such decisions are sensitive to proper model specification, recent efforts have sought to supplant this with data-driven uncertainty regions \citep{cheramin2021data, bertsimas2018data, shang2019data, johnstone2021conformal}. 
+
+Model misspecification is ever more present in \textit{contextual} robust optimization, spurring efforts to define similar data-driven uncertainty regions \citep{ohmori2021predictive, chenreddy2022data, sun2023predict}. Such methods, however, focus on box- and ellipsoid-based uncertainty regions, both of which are necessarily convex and often overly conservative, resulting in suboptimal decision-making. 
+
+Conformal prediction provides a principled framework for producing distribution-free prediction regions with marginal frequentist coverage guarantees \citep{angelopoulos2021gentle, shafer2008tutorial}. By using conformal prediction on a user-defined score function $s(x,y)$ and obtaining an empirical $1-\alpha$ quantile $\widehat{q}(\alpha)$ of $s(x,y)$ over a calibration set $\mathcal{D}_{\mathcal{C}}$, prediction regions $\mathcal{C}(x) = \{y \mid s(x, y) \le \widehat{q}(\alpha)\}$ attain marginal coverage guarantees. Such prediction regions, however, are notably defined \textit{implicitly}. For simple scores, such as residuals, an explicit expression of such regions can be written, making these the most common approaches used in practice \citep{tumu2023physics,horwitz2022conffusion,angelopoulos2022image,hu2022robust,mao2022valid}. 
+
+\begin{figure*}
+  \includegraphics[scale=0.34]{workflow.png}
+  \caption{\label{fig:workflow} \textproc{CPO} leverages informative, non-convex conformal prediction regions for robust predict-then-optimize decision making. \textproc{CPO} uses a score function such that the resulting prediction regions can be decomposed into convex subregions over which optimization can be carried out efficiently. Visual summaries $\{\xi^{(i)}\}$ of the prediction region can similarly be efficiently sampled to gain intuition on the optimal decision $w^{*}$.
+  }
+\end{figure*}
+
+The disadvantage is that such score functions ignore the structure that is often present in high-dimensional data, such as images. 
+Choices of simplistic scores, thus, tend to be overly conservative and often produce convex prediction regions even when $\mathcal{P}(Y|X)$ is non-convex. 
+Recent work has demonstrated that defining scores using conditional generative models produces sharper and, hence, more informative prediction regions \citep{feldman2023calibrated,wang2022probabilistic,patel2023variational}. We, thus, extend the line of data-driven predict-then-optimize work by considering such generative model-based prediction regions.
+
+In addition to contributing to the predict-then-optimize line of inquiry, we view this work as addressing a concern of the conformal prediction community: how to use implicitly defined non-convex, high-dimensional prediction regions. Works producing such regions have themselves noted the difficulty in their use \citep{sesia2021conformal,izbicki2022cd}. Initial works on coverage for images have framed the utility of their results in highlighting regions of the image with the greatest variability and, hence, uncertainty \citep{angelopoulos2022image,horwitz2022conffusion,belhasin2023principal}. 
+
+Extending such visualization gives invaluable intuition to the end user.
+For instance, a black-box optimization procedure for producing drug candidates to robustly bind to a predicted protein structure offers little insight into the decision-making process; however, semantic summaries of the uncertainty region would reveal regions of flexibility of the protein, clarifying why particular structures were deemed optimal in the candidate drug. Such interest in explainable robust decision-making was highlighted in a recent survey \citep{sadana2023survey}, especially given the ``right to explanation'' mandated by the EU's ``General Data Protection Regulation'' \citep{doshi2017towards, kaminski2019right}. 
+Our main contributions, thus, are:
+\begin{itemize}
+    \item Proposing Conformal-Predict-Then-Optimize (CPO) to leverage informative, non-convex prediction regions for decision-making.
+    \item Providing interpretable visual summaries of uncertainty regions using representative points.
+    \item Demonstrating the generality of CPO across a suite of benchmark tasks and a traffic routing task based on probabilistic weather prediction.
+\end{itemize}
+
+\section{BACKGROUND}\label{section:background}
+\subsection{Conformal Prediction}
+Given a dataset $\mathcal{D}=\{(x^{(1)},y^{(1)}),\ldots (x^{(N)},y^{(N)})\}$ of i.i.d.~observations from a distribution $\mathcal{P}(X, Y)$, conformal prediction \citep{angelopoulos2021gentle, shafer2008tutorial} produces prediction regions with distribution-free theoretical guarantees. A prediction region maps from observations of $X$ to sets of possible values for $Y$ and is said to be marginally valid at the $1-\alpha$ level if $\mathcal{P}_{X, Y}(Y \notin \mathcal{C}(X))\leq \alpha$.
+
+Split conformal is one popular version of conformal prediction. In this approach, marginally calibrated regions $\mathcal{C}$ are designed using a ``score function'' $s(x,y)$. Intuitively, the score function should have the quality that $s(x,y)$ is smaller when it is more reasonable to guess that $Y=y$ given the observation $X=x$. For example, if one has access to a function $\hat f(x)$ which attempts to predict $Y$ from $X$, one might take $s(x,y)=\Vert\hat f(x)-y\Vert$. The score function is evaluated on each point of a dataset $\mathcal{D_C}$ called the ``calibration dataset,'' yielding $\mathcal{S} = \{s(x^{(j)}, y^{(j)})\}_{j=1}^{N_{\mathcal{C}}}$, where $N_{\mathcal{C}} := |\mathcal{D_C}|$. Note that the calibration dataset cannot be used to pick the score function; if data is used to design the score function, it must independent of  $\mathcal{D_C}$. 
+We then define $\widehat q(\alpha)$ as the $\ceil{(N_{\mathcal{C}}+1)(1-\alpha)}/N_{\mathcal{C}}$ quantile of $\mathcal{S}$. For any future $x$, the set $\mathcal{C}(x) = \{y \mid s(x, y) \le \widehat{q}(\alpha)\}$ satisfies $1 - \alpha\le\mathcal{P}(Y \in \mathcal{C}(X))$. This inequality is known as the coverage guarantee, and it arises from the exchangeability of the score of a test point $s(x', y')$ with $\mathcal{S}$. The coverage guarantee possesses finite-sample properties.
+
+ As noted in Vovk's tutorial \citep{shafer2008tutorial}, while the coverage guarantee holds for any score function, different score functions may lead to more or less informative prediction regions. For example, the score $s(x,y)=1$ leads to the highly uninformative prediction region of all possible values of $Y$. Predictive efficiency is one way to quantify informativeness, defined as the inverse of the expected Lebesgue measure of the prediction region, i.e. $\left(\mathbb{E}[|\mathcal{C}(X)|]\right)^{-1}$ \citep{yang2021finite,sesia2020comparison}. Methods employing conformal prediction often seek to identify prediction regions that are efficient and calibrated.
+
+\subsection{Predict-Then-Optimize}
+Predict-then-optimize problems are formulated as
+\begin{equation}
+\begin{aligned}
+w^{*}(x) := \min_{w\in\mathcal{W}} \quad & \mathbb{E}[C^{T} w\mid x],
+\end{aligned}
+\end{equation}
+where $w$ are decision variables, $C$ an \textit{unknown} cost parameter, $x$ observed contextual variables, and $\mathcal{W}$ a compact feasible region. The predict-then-optimize framework is so called as the nominal approach first predicts $\widehat{c} := f(x)$ and subsequently solves $\min_{w} \widehat{c}^T w$. 
+% unknown $C$ is first predicted from observed contextual variables $x$. 
+Alternatively, a predictive contextual distribution $\mathcal{P}(C\mid x)$ is assumed, with respect to which the optimization formulation is solved. A full review is presented in \citep{elmachtoub2022smart}.
+
+This formulation, however, is inappropriate in risk-sensitive downstream tasks. For this reason, recent works have begun investigating a risk-sensitive variant or ``robust'' alternative to this traditional formulation, namely by replacing $\mathbb{E}[C^{T} w\mid x]$ with $\max_{\widehat{c}\in\mathcal{U}(x)} \widehat{c}^{T} w$ \citep{ohmori2021predictive, chenreddy2022data, sun2023predict}, where $\mathcal{U}(x)$ is constructed to guarantee coverage of $c$, precisely stated in \Cref{lemma:coverage_bound}.
+
+\section{METHOD}\label{section:method}
+We now propose CPO, a way to perform robust predict-then-optimize decision-making over informative, non-convex prediction regions based on generative models. 
+
+\subsection{CPO: Problem Formulation}
+Let $c\in\mathcal{C}$, where $(\mathcal{C}, d)$ is a general metric space, and $\mathcal{F}$ be the $\sigma$-field of $\mathcal{C}$. While the standard predict-then-optimize framework assumes a linear objective function $c^{T} w$, we consider general convex-concave objective functions $f(w, c)$ that are $L$-Lipschitz in $c$ under the metric $d$ for any fixed $w$, as follows:
+\begin{equation}\label{eqn:robust_objective}
+\begin{gathered}
+w^{*}(x) := \min_{w,\mathcal{U}} \max_{\widehat{c}\in\mathcal{U}(x)} \quad f(w, \widehat{c}) \\
+\textrm{s.t.} \quad \mathcal{P}_{X,C}(C\in\mathcal{U}(X)) \ge 1-\alpha, \\
+\end{gathered}
+\end{equation}
+where $\mathcal{U} : \mathcal{X}\rightarrow\mathcal{F}$ is a uncertainty region predictor. Exact solution of this problem is intractable, as no practical methods exist to optimize over the predictor function space $\mathcal{U}$. Practical solution of this optimization problem, thus, involves optimizing over several prespecified uncertainty region predictors $\{\mathcal{U}_i\}_{i=1}^{N}$. For any fixed $\mathcal{U}$, this robust counterpart to the nominal predict-then-optimize problem produces a valid upper bound if $c\in\mathcal{U}(x)$. Denoting the pessimism gap as $\Delta(x, c) := \min_{w} \max_{\widehat{c}\in\mathcal{U}(x)} f(w, \widehat{c}) - \min_{w} f(w, c)$, we clearly see $\Delta(x, c) \ge 0$ if $c\in\mathcal{U}(x)$, formalized below. Thus, $1-\alpha$ validity of $\mathcal{U}$ ensures the RO procedure produces a valid bound with probability $1-\alpha$, with more efficient prediction regions resulting in tighter upper bounds.
+\begin{lemma}\label{lemma:coverage_bound}
+    Consider any $f(w, c)$ that is $L$-Lipschitz in $c$ under the metric $d$ for any fixed $w$. Assume further that $\mathcal{P}_{X,C}(C \in \mathcal{U}(X)) \ge 1 - \alpha$. Then, 
+    \begin{equation}
+        \mathcal{P}_{X,C}\left(0\le \Delta(X, C) \le L \mathrm{\ diam}(\mathcal{U}(X))\right) \ge 1 - \alpha.
+    \end{equation}
+\end{lemma}
+
+\begin{proof}
+    We consider the event of interest conditionally on a pair $(x, c)$ where $c\in\mathcal{U}(x)$:
+    
+    \begin{gather*}
+        \min_{w} \max_{\widehat{c}\in\mathcal{U}(x)} f(w, \widehat{c}) - \min_{w} f(w, c) \\
+        \le \max_{w} | \max_{\widehat{c} \in \mathcal{U}(x)} f(w, \widehat{c}) - f(w, c) | \\ 
+        \le L \max_{\widehat{c} \in \mathcal{U}(x)} d(\widehat{c}, c) 
+        \le L \mathrm{diam}(\mathcal{U}(x)).
+    \end{gather*}
+
+    Since we have the assumption that $\mathcal{P}(C \in \mathcal{U}(X)) \ge 1 - \alpha$, the result immediately follows.
+\end{proof}
+
+\subsection{CPO: Score Function}
+We assume a conditional generative model $q(C\mid X)$ is learned for this prediction task. 
+For most score functions, the min-max optimization problem of \Cref{eqn:robust_po} is computationally intractable. Crucially, however, we can consider an extension to the score proposed in \citep{wang2022probabilistic}, which lends itself to a decomposition under which such optimization becomes tractable. For a fixed $K$ and $\{\widehat{c_k}\}_{k=1}^K \sim q(C \mid x)$, let
+\begin{equation}
+    s(x,c) = \min_{k}\left[d\left(\widehat{c}_k, c\right) \right].
+\end{equation}
+We refer to this score as ``Generalized Probabilistic Conformal Prediction,'' (GPCP) whose validity follows from that of the original PCP framework \citep{wang2022probabilistic}. We discuss the selection of $K$ in Section \ref{section:k_selection}.
+
+\subsection{CPO: Optimization Algorithm}\label{section:optimization}
+We fix $\alpha\in[0,1]$ and take $\mathcal{U}(x)$ to be the $1-\alpha$ prediction region $\mathcal{C}(x)$. Let $\phi(w) := \max_{\widehat{c} \in \mathcal{C}(x)} f(w, \widehat{c})$. It follows that $\phi(w)$ is convex by Danskin's Theorem by assumption of the convexity of $f$ in $w$. Exact solution of the min-max problem, thus, follows using standard gradient-based optimization techniques on $\phi(w)$. By Danskin's Theorem, $\nabla_{w} \phi(w) = \nabla_{w} f(w, c^{*})$, where $c^{*} := \max_{\widehat{c} \in \mathcal{C}(x)} f(w, \widehat{c})$. We follow the standard projected gradient descent optimization scheme, projecting into $\mathcal{W}$ at each iterate, denoted by $\Pi_{\mathcal{W}}$.
+
+Efficient solution of this RO problem, therefore, reduces to being able to efficiently solve the maximization problem over $\mathcal{C}(x)$. While challenging over general nonconvex regions, the GPCP score formulation lends itself to a highly structured prediction region, namely of the form $\mathcal{C}(x) = \bigcup_{k=1}^{K} \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})$ with $\mathcal{B}_{\widehat{q}}$ being a ball of radius $\widehat{q}$, the conformal quantile, under the $d$ metric. This decomposition of $\mathcal{C}(x)$ means the maximum can be efficiently computed by aggregating the maxima over the individual balls:
+\begin{equation}
+    \max_{\widehat{c} \in \mathcal{C}(x)} f(w, \widehat{c})
+    = \max_{k} \max_{\widehat{c} \in \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c}),
+\end{equation}
+where the maximum over a ball can be efficiently computed with traditional convex optimization techniques. This procedure is summarized in Algorithm \ref{alg:CPO-Opt}. The convergence of this procedure proceeds as follows.
+
+\begin{algorithm}
+  \caption{\label{alg:CPO-Opt} CPO-Opt}
+  \begin{algorithmic}[1]
+    \Procedure{CPO-Opt}{}
+    \Statex \textbf{Inputs: } Context $x$, CGM $q(C\mid X)$, Optimization steps $T$, Score samples $K$, Conformal quantile $\widehat{q}$
+    \State $w \sim U(\mathcal{W}), \{\widehat{c_k}\}_{k=1}^{K} \sim q(C \mid x)$
+    \For{$t \in\{1,\ldots T\}$}
+    \State $\left\{c_{k}^{*} \gets \argmax_{\widehat{c} \in \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c})\right\}_{k=1}^{K}$
+    \State $c^{*} \gets \argmax_{c_{k}^{*}} f(w, c_{k}^{*})$
+    \State $w \gets \Pi_{\mathcal{W}} (w - \eta \nabla_{w} f(w, c^{*}))$
+    \EndFor
+    \State{\textbf{Return} $w$}
+    \EndProcedure
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{lemma}\label{lemma:cpo_convergence}
+    Let $\phi(w) := \max_{\widehat{c} \in \bigcup_{k=1}^{K} \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c})$ for $\{\widehat{c}_{k}\}_{k=1}^{K}\subset\mathcal{C}$, $\widehat{q}\in\mathbb{R}^{+}$, and $f(w, c)$ convex-concave and $L$-Lipschitz in $c$ for any fixed $w$. Let $w^{*}\in \mathcal{W}$ be a minimizer of $\phi$. For any $\epsilon > 0$, define $T := \frac{L^2 || w_0 - w^{*} ||}{\epsilon^2}$ and $\eta := \frac{|| w_0 - w^{*} ||}{L \sqrt{T}}$. Then the iterates $\{w_{t}\}_{t=0}^{T}$ returned by Algorithm \ref{alg:CPO-Opt} satisfy
+    \begin{equation}
+        \phi\left(\frac{1}{T+1}\sum_{t=0}^{T} w_{t}\right) -  \phi(w^{*}) \le \epsilon.
+    \end{equation}
+\end{lemma}
+
+\begin{proof}
+    We first begin by citing a standard result of projected gradient descent, from which the result of interest immediately follows.
+
+    \begin{lemma}\label{lemma:pgd_convergence}
+        Let $K$ be a closed convex set, and $f : K \rightarrow \mathbb{R}$ be convex, differentiable, and $L$-Lipschitz. Let $x^{*}\in K$ be a minimizer of $f$, and define $T := \frac{L^2 || x_0 - x^{*} ||}{\epsilon^2}$ and $\eta := \frac{|| x_0 - x^{*} ||}{L \sqrt{T}}$. Then the iterates $\{x_{t}\}_{t=0}^{T}$ returned by projected gradient descent satisfy
+
+        \begin{equation}
+            f\left(\frac{1}{T+1}\sum_{t=0}^{T} x_{t}\right) - f(x^{*}) \le \epsilon.
+        \end{equation}
+    \end{lemma}
+
+    Notice that $\phi(w)$ is convex by Danskin's Theorem by assumption of the convexity of $f$ in $w$. By Danskin's Theorem, $\nabla_{w} \phi(w) = \nabla_{w} f(w, c^{*})$, where $c^{*} := \max_{\widehat{c} \in \mathcal{C}(x)} f(w, \widehat{c})$. Further notice
+    
+    \begin{equation}
+        \phi(w) 
+        := \max_{\widehat{c} \in \mathcal{C}(x)} f(w, \widehat{c})
+        = \max_{k} \max_{\widehat{c} \in \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c}).
+    \end{equation}
+
+    Denote $\phi_{k}(w) := \max_{\widehat{c} \in \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c})$. Clearly, $\phi_{k}(w)$ is $L$-Lipschitz by assumption on the structure of $f$. Further, as the point-wise maximum of $L$-Lipschitz functions is itself $L$-Lipschitz, it follows that $\phi(w) = \max_{k} \phi_{k}(w)$ is also $L$-Lipschitz. The conclusion, thus, follows by applying \Cref{lemma:pgd_convergence} to $\phi(w)$.
+\end{proof}
+
+\subsection{CPO: $K$ Selection}\label{section:k_selection}
+Crucially, the convergence highlighted in \Cref{lemma:cpo_convergence} reveals that the number of ``outer'' iterations (i.e. $T$) has no dependence on $K$. This is apparent from the proof, in which the iterate count $T$ hinges upon the Lipschitz constant of $\phi(w) = \max_{k} \max_{\widehat{c} \in \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c}) := \max_{k} \phi_{k}(w)$, which critically is $L$-Lipschitz \textit{regardless} of what $K$ is selected, as  each $\phi_{k}(w)$ is $L$-Lipschitz. 
+
+We can, thus, solely focus attention on the impact the choice of $K$ has on the ``inner'' optimization computational cost, namely $\max_{k} \phi_{k}(w)$.
+% , giving an overall cost of $\mathcal{O}(KT)$. 
+This linearly increasing cost with $K$, however, must be juxtaposed with the improved \textit{statistical} efficiency of such prediction regions. In particular, \citep{wang2022probabilistic} empirically demonstrated region size generally decreased nonlinearly up to a saturation point as a function of $K$. 
+
+Critically, this inflection point can be determined \textit{prior} to performing the optimization, since doing so only requires access to $q(C\mid X)$ and test samples to estimate the prediction region size. As pointed out in \citep{wang2022probabilistic} and proven in \citep{chan2008slightly}, estimation of the volume of a union of hyperspheres is complicated by the need to account for overlapped regions. 
+% Naive suffers from the curse of dimensionality, so 
+$K$ is, thus, chosen based on Monte Carlo estimates of the prediction region volume using Voronoi cells of the hypersphere centers given by \citep{edelsbrunner1995union}:
+\begin{equation}
+\widehat{\ell}(\{\mathcal{B}_{\widehat{q}}(\widehat{c}_{k})\}) := |\mathcal{B}_{\widehat{q}}| \sum_{k = 1}^K \mathcal{P}_{C \sim U(\mathcal{B}_{\widehat{q}}(\widehat{c}_k))}(C \in V(\widehat{c}_k)),
+\end{equation}
+where 
+ $C \sim U(\mathcal{B}_{\widehat{q}}(\widehat{c}_k))$ denotes a random variable defined uniformly over the region associated with $\widehat{c}_k$, $|\mathcal{B}_{\widehat{q}}|$ the volume of a hypersphere of radius $\widehat{q}$, and $V(\widehat{c}_k)$ the Voronoi cell of $\widehat{c}_k$, defined as $\{z \in \mathbb{R}^d \mid d(\widehat{c}_k, z) \leq d(\widehat{c}_{k'}, z), k'\neq k\}$. Muller's method enables efficient sampling of $U(\mathcal{B}_{\widehat{q}}(\widehat{c}_k))$ \citep{muller1959note,fishman2013monte}.
+
+% Using such estimates, we then choose $K$ to be the inflection point that minimizes the volume considering the user's computational budget which is characterized by $\epsilon$ or volume tolerance, a lower bound of the decrease in volume when $K$ is increased by $1$.
+
+We then choose $K^{*}$ to be the inflection point, namely the $\argmin_{K} |\widehat{\ell}_K - \widehat{\ell}_{K + 1}| \leq \epsilon$ for some 
+user-specified $\epsilon$ volume tolerance. Critically, these volume estimates must be performed on a distinct subset of the data from $\mathcal{D}_{\mathcal{C}}$ 
+as exchangeability with future test points is otherwise lost in conditioning on $\mathcal{D_C}$ for selecting $K^*$ \citep{yang2021finite}. We, thus, partition $\mathcal{D}_{\mathcal{C}} := \mathcal{D}_{\mathcal{C}_1} \cup \mathcal{D}_{\mathcal{C}_2}$, using $\mathcal{D}_{\mathcal{C}_1}$ for calibration and $\mathcal{D}_{\mathcal{C}_2}$ for volume estimation, detailed in Algorithm \ref{alg:CPO}.
+
+\begin{algorithm}
+  \caption{\label{alg:VolumeEst} \textproc{VolumeEst}}
+  \begin{algorithmic}[1]
+    \Procedure{VolumeEst}{}
+    \Statex \textbf{Inputs: } Context $x$, CGM $q(C\mid X)$, Conformal quantile $\widehat{q}$
+    \State $\{\widehat{c}_k\}_{k = 1}^{K} \sim q(C_{1:K}\mid x)$
+    \State $\left\{\{c_{k, m}\}_{m = 1}^{M}  \sim U(\mathcal{B}_{\widehat{q}}(\widehat{c}_{k})) \right\}_{k = 1}^{K}$
+    \State \textbf{Return} $|B_{\widehat{q}}| \sum_{k=1}^{K} \frac{1}{M}\sum_{m=1}^{M}\mathds{1}\left[c_{k, m} \in V(\widehat{c}_{k})\right]$
+    \EndProcedure
+  \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+  \caption{\label{alg:CPO} \textproc{CPO}}
+    \Procedure{CPO}{}
+    \Statex \textbf{Inputs: } Context $x$, CGM $q(C\mid X)$, Optimization steps $T$, Desired coverage $1-\alpha$, Max samples $K_{\max}$, Volume Tolerance $\epsilon$, Calibration sets $\mathcal{D}_{\mathcal{C}_1}, \mathcal{D}_{\mathcal{C}_2}$
+    \For{$K \in\{1,\ldots K_{\max}\}$}
+    \State $s_K(x, c) \gets \min_{\widehat{c}_k\in \{\widehat{c}_i\} \sim q(C_{1:K}\mid x) }\left[d\left(\widehat{c}_k, c\right) \right]$
+    \State $\mathcal{S}_K \gets \left\{s_K(x^{(i)}, c^{(i)})\mid (x^{(i)}, c^{(i)})\in\mathcal{D}_{\mathcal{C}_1}\right\}$
+    \State $\widehat{q}_K \gets \frac{\ceil{(|\mathcal{D}_{\mathcal{C}_1}| +1)(1-\alpha)}}{|\mathcal{D}_{\mathcal{C}_1}|} \text{ quantile of } \mathcal{S}_K$
+    \State $\widehat{\ell}_K \gets \frac{1}{|\mathcal{D}_{\mathcal{C}_2}|}\sum_{i=1}^{|\mathcal{D}_{\mathcal{C}_2}|}\textproc{VolumeEst}(x^{(i)}, q, \widehat{q}_K)$
+    \EndFor
+    \State $K^{*} \gets \argmin_{K} \left|\widehat{\ell}_K - \widehat{\ell}_{K + 1}\right| \leq \epsilon$
+    \State{\textbf{Return} $\textproc{CPO-Opt}(x, q, T, K^{*}, \widehat{q}_{K^{*}})$}
+    \EndProcedure
+    \end{algorithmic}
+\end{algorithm}
+
+\end{document}

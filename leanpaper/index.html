@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LeanPaper | Conformal Contextual Robust Optimization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Lora:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        packages: {'[+]': ['ams']},
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        macros: {
+          argmax: '\\operatorname{arg\\,max}',
+          argmin: '\\operatorname{arg\\,min}',
+          logit: '\\operatorname{logit}',
+          ceil: ['\\left\\lceil #1 \\right\\rceil', 1],
+          floor: ['\\left\\lfloor #1 \\right\\rfloor', 1],
+          textproc: ['\\texttt{#1}', 1],
+          mathds: ['\\mathbb{#1}', 1]
+        }
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/latex.js@0.12.6/dist/latex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script defer src="paper.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">LP</div>
+        <div>
+          <div class="brand-name">LeanPaper</div>
+        </div>
+      </div>
+      <div id="paper-status" class="status-pill">Loading main paper…</div>
+    </header>
+
+    <main class="layout">
+      <aside class="nav-panel">
+        <div class="panel-heading">
+          <div>
+            <div class="panel-title">Papers</div>
+            <div class="panel-subtitle">Select a paper to view</div>
+          </div>
+        </div>
+        <div id="paper-list" class="paper-list"></div>
+      </aside>
+
+      <section class="paper-panel">
+        <div id="paper-content" class="paper-content">
+          <p class="muted">Loading main paper…</p>
+        </div>
+      </section>
+
+      <aside class="proof-panel">
+        <div class="panel-heading">
+          <div>
+            <div class="panel-title">Details</div>
+            <div class="panel-subtitle">Click a citation to preview its reference</div>
+          </div>
+        </div>
+        <div id="side-panel-body" class="proof-placeholder">
+          <p>Click a citation to see the reference here.</p>
+          <p>We’ll also surface Lean snippets in this panel soon.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
