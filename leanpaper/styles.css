@@ -412,6 +412,39 @@ body {
   color: #fca5a5;
 }
 
+.cite-popover {
+  position: absolute;
+  background: #0f1828;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  color: #e7ecf7;
+  padding: 12px 14px;
+  border-radius: 12px;
+  max-width: 360px;
+  min-width: 240px;
+  z-index: 9999;
+  line-height: 1.5;
+}
+
+.cite-popover .cite-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #93a2b7;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.cite-popover .cite-close:hover {
+  color: #dbe4f3;
+}
+
+.cite-popover a {
+  color: #fff;
+}
+
 .cross-ref {
   color: var(--accent);
   text-decoration: none;

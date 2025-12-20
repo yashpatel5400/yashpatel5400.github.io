@@ -21,6 +21,7 @@ let currentPaperBase = '';
 let equationNumbers = {};
 let currentTOC = [];
 let currentLeanPath = null;
+let activeCitationPopover = null;
 const PROOF_SOURCES = {
   'lemma:coverage_bound': {
     path: 'contextual_robust_optimization/lean/ContextualRobustOpt/Subopt.lean',
@@ -526,8 +527,7 @@ function slugifyCiteKey(key) {
 
 function attachCitationHandlers(entries) {
   const paperEl = document.getElementById('paper-content');
-  const sidePanel = document.getElementById('side-panel-body');
-  if (!paperEl || !sidePanel) return;
+  if (!paperEl) return;
   const byKey = new Map(entries.map(e => [e.citekey, e]));
 
   paperEl.querySelectorAll('a.citation').forEach(anchor => {
@@ -536,14 +536,68 @@ function attachCitationHandlers(entries) {
       const key = anchor.dataset.citekey;
       const entry = byKey.get(key);
       if (entry) {
-        sidePanel.innerHTML = renderReferenceDetail(entry);
-        sidePanel.className = 'reference-detail';
+        showCitationPopover(entry, anchor);
       } else {
-        sidePanel.innerHTML = `<p>Reference not found for ${key}.</p>`;
-        sidePanel.className = 'proof-placeholder';
+        closeCitationPopover();
       }
     });
   });
+}
+
+function closeCitationPopover() {
+  if (activeCitationPopover) {
+    activeCitationPopover.remove();
+    activeCitationPopover = null;
+    document.removeEventListener('click', handleCitationPopoverBlur, true);
+  }
+}
+
+function handleCitationPopoverBlur(e) {
+  if (activeCitationPopover && !activeCitationPopover.contains(e.target)) {
+    closeCitationPopover();
+  }
+}
+
+function showCitationPopover(entry, anchor) {
+  closeCitationPopover();
+  const pop = document.createElement('div');
+  pop.className = 'cite-popover';
+  pop.innerHTML = `<button class="cite-close" aria-label="Close citation popover">×</button>${renderReferenceDetail(entry)}`;
+  pop.style.position = 'absolute';
+  pop.style.visibility = 'hidden';
+  document.body.appendChild(pop);
+
+  const rect = anchor.getBoundingClientRect();
+  const popRect = pop.getBoundingClientRect();
+  const margin = 8;
+  const scrollX = window.scrollX || window.pageXOffset;
+  const scrollY = window.scrollY || window.pageYOffset;
+  let top = rect.bottom + scrollY + margin;
+  let left = rect.left + scrollX;
+
+  const maxLeft = scrollX + window.innerWidth - popRect.width - margin;
+  const minLeft = scrollX + margin;
+  if (left > maxLeft) left = maxLeft;
+  if (left < minLeft) left = minLeft;
+
+  if (top + popRect.height > scrollY + window.innerHeight - margin) {
+    top = rect.top + scrollY - popRect.height - margin;
+    if (top < scrollY + margin) top = scrollY + margin;
+  }
+
+  pop.style.top = `${top}px`;
+  pop.style.left = `${left}px`;
+  pop.style.visibility = 'visible';
+
+  const closeBtn = pop.querySelector('.cite-close');
+  closeBtn?.addEventListener('click', e => {
+    e.stopPropagation();
+    closeCitationPopover();
+  });
+
+  pop.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', handleCitationPopoverBlur, true);
+  activeCitationPopover = pop;
 }
 
 function attachLemmaHandlers() {
@@ -592,7 +646,7 @@ async function loadLeanProof(label) {
     throw new Error('No proof source configured for this label');
   }
 
-  const res = await fetch(source.path);
+  const res = await fetch(source.path, { cache: 'no-store' });
   if (!res.ok) {
     throw new Error(`Failed to fetch ${source.path} (${res.status})`);
   }
