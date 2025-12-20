@@ -11,6 +11,8 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 
 I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. I am most excited in working on using ML for accelerating scientific discovery. 
 
+I am also currently in the midst of formalizing (using <a href="https://lean-lang.org/">Lean</a>) and packaging my research projects in my <a href="https://ypatel.io/leanpaper/">LeanPaper</a> project.
+
 <div class="timeline-section">
 <div class="timeline">
 <div class="timeline-item">
@@ -270,7 +272,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 
 * * *
 
-My work has largely focused on developing methods with end-to-end statistical guarantees to create <b>reliable machine learning systems</b> and layering robust decision-making on top of such uncertainty estimates, especially for scientific applications. My projects largely split into three headings: <b>uncertainty quantification methodology</b>, <b>robust decision-making</b>, and <b>AI for Science</b>.
+My work has largely focused on developing methods with end-to-end statistical guarantees to create <b>reliable machine learning systems</b> and layering robust decision-making on top of such uncertainty estimates, especially for scientific applications. My projects largely split into three headings: <b>uncertainty quantification methodology</b>, <b>robust decision-making</b>, and <b>AI for Science</b>. Track my ongoing progress in formalizing and packaging my research projects on <a href="https://ypatel.io/leanpaper/">LeanPaper</a>.
 
 <h3 align="left" id="uq_methods">
   Uncertainty Quantification Methodology
