@@ -1,41 +1,72 @@
-const DEFAULT_PAPER_PATH = 'core.tex';
-const DEFAULT_BIB_PATH = 'refs.bib';
+const DEFAULT_PAPER_PATH = 'contextual_robust_optimization/core.tex';
+const DEFAULT_BIB_PATH = 'contextual_robust_optimization/refs.bib';
 const PAPERS = [
   {
     id: 'cpo',
     title: 'Conformal Contextual Robust Optimization',
-    paper: 'core.tex',
-    bib: 'refs.bib'
+    paper: 'contextual_robust_optimization/core.tex',
+    bib: 'contextual_robust_optimization/refs.bib',
+    repo: 'https://github.com/yashpatel5400/robbuffet',
+    pdf: 'https://proceedings.mlr.press/v238/patel24a/patel24a.pdf'
   }
 ];
 const LATEX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/latex.js@0.12.6/dist/';
+const LEAN_SERVER_ENDPOINT =
+  (typeof window !== 'undefined' && window.LEAN_SERVER_ENDPOINT) ||
+  'https://kimina-lean-server.onrender.com/verify';
 
 let latexAssetsAttached = false;
 let currentPaperId = null;
+let currentPaperBase = '';
 let equationNumbers = {};
+let currentTOC = [];
+let currentLeanPath = null;
 const PROOF_SOURCES = {
   'lemma:coverage_bound': {
-    path: 'subopt.lean',
+    path: 'contextual_robust_optimization/lean/ContextualRobustOpt/Subopt.lean',
+    leanPath: 'ContextualRobustOpt/Subopt.lean',
     anchor: 'theorem coverage_bound'
   },
   'lemma:cpo_convergence': {
-    path: 'convergence.lean',
+    path: 'contextual_robust_optimization/lean/ContextualRobustOpt/Convergence.lean',
+    leanPath: 'ContextualRobustOpt/Convergence.lean',
     anchor: 'theorem pgd_convergence'
   }
 };
+
+function githubSvg() {
+  return `
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" width="16" height="16">
+      <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.5 7.5 0 0 1 4.01 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path>
+    </svg>
+  `;
+}
+
+function paperSvg() {
+  return `
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" width="16" height="16">
+      <path fill="currentColor" d="M3.5 1A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V5.914a1.5 1.5 0 0 0-.44-1.06l-3.914-3.914A1.5 1.5 0 0 0 8.586 0H3.5ZM9 1.914 12.086 5H9.5A.5.5 0 0 1 9 4.5V1.914ZM8.5 6H4a.5.5 0 0 0 0 1h4.5a.5.5 0 0 0 0-1Zm0 2H4a.5.5 0 0 0 0 1h4.5a.5.5 0 0 0 0-1Zm0 2H4a.5.5 0 0 0 0 1h4.5a.5.5 0 0 0 0-1Z"></path>
+    </svg>
+  `;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const initial = resolveInitialPaper();
   renderPaperList(initial.id);
   loadPaper(initial);
+  setupResizers();
+  attachCompileHandler();
 });
 
 async function loadPaper(selection) {
   const statusEl = document.getElementById('paper-status');
   const paperEl = document.getElementById('paper-content');
-  const { paperPath, bibPath, title, id } = selection || resolveInitialPaper();
+  const { paperPath, bibPath, title, id, repo, pdf } = selection || resolveInitialPaper();
+  const lastSlash = paperPath.lastIndexOf('/');
+  currentPaperBase = lastSlash !== -1 ? paperPath.slice(0, lastSlash) : '';
   currentPaperId = id || null;
   renderPaperList(currentPaperId);
+  updateActionLinks({ repo, pdf });
 
   setStatus(statusEl, 'Loading main paper…');
 
@@ -86,6 +117,9 @@ async function loadPaper(selection) {
       await window.MathJax.typesetPromise([paperEl]);
     }
 
+    currentTOC = buildTOC(paperEl);
+    renderPaperList(currentPaperId);
+
     if (bibEntries && bibEntries.length) {
       const refsHtml = renderBibliographySection(bibEntries);
       paperEl.insertAdjacentHTML('beforeend', refsHtml);
@@ -93,6 +127,9 @@ async function loadPaper(selection) {
 
     attachCitationHandlers(bibEntries);
     attachLemmaHandlers();
+    if (paperEl) {
+      paperEl.scrollTop = 0;
+    }
     setStatus(statusEl, '');
   } catch (err) {
     console.error(err);
@@ -105,6 +142,18 @@ function setStatus(el, text) {
   if (el) {
     el.textContent = text;
   }
+}
+
+function setLeanHeading(text) {
+  const heading = document.getElementById('lean-heading');
+  if (heading) heading.textContent = text;
+}
+
+function setLeanEditorContent(code, readOnly = false) {
+  const editor = document.getElementById('lean-editor');
+  if (!editor) return;
+  editor.value = code || '';
+  editor.readOnly = readOnly;
 }
 
 function extractBody(tex) {
@@ -220,7 +269,9 @@ function renderWithMarkdown(body, citationMap, meta, eqNumbers) {
     headerIds: false
   });
 
-  const html = window.marked.parse(text);
+  let html = window.marked.parse(text);
+  // Remove stray dollar-only paragraphs that can appear if math blocks were partially parsed.
+  html = html.replace(/<p>\\?\$\\?\$?\\?<\/p>\s*/g, '');
   return restoreMathPlaceholders(html, placeholders);
 }
 
@@ -234,8 +285,8 @@ function latexToMarkdown(body, meta, eqNumbers) {
   md = md.replace(/\\aistatsauthor\{([^}]*)\}/, '*$1*\n');
   md = md.replace(/\\aistatsaddress\{([^}]*)\}/, '*$1*\n');
 
-  md = md.replace(/\\begin\{abstract\}/, '### Abstract\n');
-  md = md.replace(/\\end\{abstract\}/, '\n');
+  md = md.replace(/\\begin\{abstract\}/, '## Abstract\n');
+  md = md.replace(/\\end\{abstract\}/, '\n\n---\n\n');
 
   md = md.replace(/\\section\{([^}]*)\}/g, '## $1');
   md = md.replace(/\\subsection\{([^}]*)\}/g, '### $1');
@@ -311,7 +362,14 @@ function resolveInitialPaper() {
   const { paperPath, bibPath } = getAssetPaths();
   const matched = PAPERS.find(p => p.paper === paperPath) || null;
   if (matched) {
-    return { id: matched.id, title: matched.title, paperPath: matched.paper, bibPath: matched.bib };
+    return {
+      id: matched.id,
+      title: matched.title,
+      paperPath: matched.paper,
+      bibPath: matched.bib,
+      repo: matched.repo,
+      pdf: matched.pdf
+    };
   }
   return { id: null, title: paperPath, paperPath, bibPath };
 }
@@ -404,7 +462,8 @@ function renderBibliographySection(entries) {
     .map(entry => {
       const slug = slugifyCiteKey(entry.citekey);
       const label = entry.number || '';
-      return `<li id="ref-${slug}"><span class="ref-label">[${label}]</span> ${formatBibEntry(entry)}</li>`;
+      const numLink = `<a class="citation" data-citekey="${entry.citekey}" href="#ref-${slug}">[${label}]</a>`;
+      return `<li id="ref-${slug}"><span class="ref-label">${numLink}</span> ${formatBibEntry(entry)}</li>`;
     })
     .join('');
 
@@ -490,6 +549,8 @@ function attachCitationHandlers(entries) {
 function attachLemmaHandlers() {
   const paperEl = document.getElementById('paper-content');
   const sidePanel = document.getElementById('side-panel-body');
+  const headingEl = document.getElementById('lean-heading');
+  const editor = document.getElementById('lean-editor');
   if (!paperEl || !sidePanel) return;
 
   paperEl.querySelectorAll('.lemma-block').forEach(block => {
@@ -498,13 +559,28 @@ function attachLemmaHandlers() {
     block.style.cursor = 'pointer';
     block.addEventListener('click', async () => {
       sidePanel.className = 'reference-detail';
-      sidePanel.innerHTML = '<p class="muted">Loading Lean proof…</p>';
+      if (headingEl) headingEl.textContent = 'Loading Lean code…';
+      if (editor) {
+        editor.value = '';
+        editor.readOnly = true;
+      }
+      setLeanOutput('Checking with Lean server…', 'pending');
       try {
-        const proofHtml = await loadLeanProof(label);
-        sidePanel.innerHTML = proofHtml;
+        const { code, heading, leanPath } = await loadLeanProof(label);
+        currentLeanPath = leanPath || null;
+        if (headingEl) headingEl.textContent = heading;
+        if (editor) {
+          editor.value = code || '';
+          editor.readOnly = false;
+        }
+        setLeanOutput('Ready to compile.', '');
       } catch (err) {
-        sidePanel.innerHTML = `<p>Could not load Lean proof for ${label}: ${err.message}</p>`;
-        sidePanel.className = 'proof-placeholder';
+        if (headingEl) headingEl.textContent = `Could not load Lean code for ${label}`;
+        if (editor) {
+          editor.value = `-- error: ${err.message}`;
+          editor.readOnly = true;
+        }
+        setLeanOutput(`Lean server unavailable: ${err.message}`, 'error');
       }
     });
   });
@@ -521,14 +597,223 @@ async function loadLeanProof(label) {
     throw new Error(`Failed to fetch ${source.path} (${res.status})`);
   }
   const text = await res.text();
-  const snippet = extractLeanSnippet(text, source.anchor);
+  const snippet = text;
+  return { code: snippet, heading: formatRefLabel(label), leanPath: source.leanPath || source.path };
+}
 
-  return `
-    <div class="reference-detail">
-      <div class="env-heading">${formatRefLabel(label)}</div>
-      <pre><code class="lean">${escapeHtml(snippet)}</code></pre>
-    </div>
-  `;
+async function runLeanCheck(path, code) {
+  setLeanOutput('Checking with Lean server…', 'pending');
+  try {
+    const url = `${LEAN_SERVER_ENDPOINT}`;
+    const needsMathlib = !code || !code.includes('import Mathlib');
+    const proof = needsMathlib ? `import Mathlib\n\n${code || ''}` : code;
+    const payload = {
+      codes: [
+        {
+          custom_id: path || 'main',
+          proof
+        }
+      ],
+      infotree_type: 'original'
+    };
+    const options = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    };
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      throw new Error(`server returned ${res.status}`);
+    }
+    const parsed = await res.json();
+    const result = parsed?.results && parsed.results[0];
+    const messages = result?.response?.messages || [];
+    const time = result?.response?.time;
+
+    let message = '';
+    if (messages.length) {
+      message = messages
+        .map(m => {
+          const pos = m.pos ? `(${m.pos.line}:${m.pos.column})` : '';
+          return `${m.severity || 'info'} ${pos} ${m.data || m.text || ''}`.trim();
+        })
+        .join('\n');
+    } else {
+      message = 'All goals completed!';
+    }
+    if (time !== undefined) {
+      const t = typeof time === 'number' ? time.toFixed(3) : time;
+      message += `\nTime: ${t}s`;
+    }
+    setLeanOutput(message.trim(), 'success');
+  } catch (err) {
+    setLeanOutput(`Lean server unavailable: ${err.message}`, 'error');
+  }
+}
+
+function setLeanOutput(text, state = '') {
+  const output = document.getElementById('lean-output');
+  if (!output) return;
+  output.textContent = text;
+  output.className = `lean-output${state ? ` ${state}` : ''}`;
+}
+
+function attachCompileHandler() {
+  const btn = document.getElementById('lean-compile');
+  const editor = document.getElementById('lean-editor');
+  if (!btn || !editor) return;
+  btn.addEventListener('click', () => {
+    const code = editor.value;
+    const path = currentLeanPath;
+    if (!code || !path) {
+      setLeanOutput('No Lean source loaded.', 'error');
+      return;
+    }
+    runLeanCheck(path, code);
+  });
+}
+
+function setupResizers() {
+  setupMainResizers();
+  setupProofResizer();
+}
+
+function setupMainResizers() {
+  const layout = document.querySelector('.layout');
+  const leftHandle = document.getElementById('divider-nav-paper');
+  const rightHandle = document.getElementById('divider-paper-proof');
+  if (!layout || !leftHandle || !rightHandle) return;
+
+  const root = document.documentElement;
+  const dividerW = parseInt(getComputedStyle(root).getPropertyValue('--divider')) || 6;
+  const minNav = 220;
+  const minPaper = 520;
+  const minProof = 280;
+
+  function getState() {
+    const navEl = document.querySelector('.nav-panel');
+    const paperEl = document.querySelector('.paper-panel');
+    const proofEl = document.querySelector('.proof-panel');
+    let nav = navEl ? navEl.getBoundingClientRect().width : 0;
+    let paper = paperEl ? paperEl.getBoundingClientRect().width : 0;
+    let proof = proofEl ? proofEl.getBoundingClientRect().width : 0;
+    if (!nav || Number.isNaN(nav)) nav = 280;
+    if (!paper || Number.isNaN(paper)) paper = 760;
+    if (!proof || Number.isNaN(proof)) proof = 400;
+    return { nav, paper, proof };
+  }
+
+  function setState({ nav, paper, proof }) {
+    root.style.setProperty('--col-nav', `${nav}px`);
+    root.style.setProperty('--col-paper', `${paper}px`);
+    root.style.setProperty('--col-proof', `${proof}px`);
+  }
+
+  function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+  }
+
+  function attach(handle, onDrag) {
+    let startX = 0;
+    let startState = null;
+    function onMove(e) {
+      const dx = e.clientX - startX;
+      onDrag(dx, startState);
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault();
+      startX = e.clientX;
+      startState = getState();
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
+
+  attach(leftHandle, (dx, start) => {
+    const total = layout.clientWidth;
+    let nav = clamp(start.nav + dx, minNav, total - dividerW * 2 - minPaper - minProof);
+    let paper = start.paper;
+    let proof = start.proof;
+    const remaining = total - dividerW * 2 - nav;
+    if (paper + proof > remaining) {
+      const scale = remaining / (paper + proof);
+      paper = paper * scale;
+      proof = proof * scale;
+    }
+    paper = clamp(paper, minPaper, remaining - minProof);
+    proof = remaining - paper;
+    if (proof < minProof) {
+      proof = minProof;
+      paper = remaining - proof;
+    }
+    setState({ nav, paper, proof });
+  });
+
+  attach(rightHandle, (dx, start) => {
+    const total = layout.clientWidth;
+    let nav = start.nav;
+    let paper = clamp(start.paper + dx, minPaper, total - dividerW * 2 - nav - minProof);
+    let proof = total - dividerW * 2 - nav - paper;
+    if (proof < minProof) {
+      proof = minProof;
+      paper = total - dividerW * 2 - nav - proof;
+    }
+    setState({ nav, paper, proof });
+  });
+}
+
+function setupProofResizer() {
+  const split = document.querySelector('.proof-split');
+  const handle = document.getElementById('divider-proof-split');
+  if (!split || !handle) return;
+  const root = document.documentElement;
+  const minTop = 80;
+  const minBottom = 80;
+
+  function getState() {
+    const sections = split.querySelectorAll('.proof-section');
+    let top = sections[0] ? sections[0].getBoundingClientRect().height : 0;
+    let bottom = sections[1] ? sections[1].getBoundingClientRect().height : 0;
+    if (!top || Number.isNaN(top)) top = split.clientHeight * 0.75;
+    if (!bottom || Number.isNaN(bottom)) bottom = split.clientHeight * 0.25;
+    return { top, bottom };
+  }
+  function setState({ top, bottom }) {
+    root.style.setProperty('--proof-top', `${top}px`);
+    root.style.setProperty('--proof-bottom', `${bottom}px`);
+  }
+  function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+  }
+
+  let startY = 0;
+  let startState = null;
+  function onMove(e) {
+    const dy = e.clientY - startY;
+    const total = split.clientHeight;
+    let top = clamp(startState.top + dy, minTop, total - minBottom);
+    let bottom = total - top;
+    if (bottom < minBottom) {
+      bottom = minBottom;
+      top = total - bottom;
+    }
+    setState({ top, bottom });
+  }
+  function onUp() {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+  }
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startY = e.clientY;
+    startState = getState();
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
 }
 
 function extractLeanSnippet(fileText, anchor) {
@@ -655,10 +940,32 @@ function normalizeQuotes(text) {
   return text.replace(/``([^`]+)''/g, '“$1”');
 }
 
+function extractCommandArgument(tex, command) {
+  const startToken = `\\${command}{`;
+  const start = tex.indexOf(startToken);
+  if (start === -1) return '';
+  let depth = 0;
+  let arg = '';
+  for (let i = start + startToken.length; i < tex.length; i++) {
+    const ch = tex[i];
+    if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      if (depth === 0) {
+        // argument ends
+        return arg;
+      }
+      depth -= 1;
+    }
+    arg += ch;
+  }
+  return arg;
+}
+
 function convertFigures(text, mode) {
   const figRegex = /\\begin\{figure\*?\}[\s\S]*?\\end\{figure\*?\}/g;
   return text.replace(figRegex, fig => {
-    const caption = (fig.match(/\\caption\{([\s\S]*?)\}/) || [])[1] || '';
+    const caption = extractCommandArgument(fig, 'caption') || '';
     const graphics = fig.match(/\\includegraphics(?:\[(.*?)\])?\{([^}]*)\}/);
     const options = graphics ? graphics[1] : '';
     const src = graphics ? resolveImagePath(graphics[2]) : '';
@@ -708,9 +1015,15 @@ function graphicsOptionsToStyle(options) {
 
 function resolveImagePath(src) {
   if (!src) return '';
-  // If already absolute or has a slash, leave it; otherwise, try images/ as a fallback.
-  if (/^(https?:)?\/\//.test(src) || src.includes('/')) return src;
-  return `images/${src}`;
+  // If already absolute, leave it.
+  if (/^(https?:)?\/\//.test(src)) return src;
+  // If contains a slash, treat as relative to the paper base.
+  if (src.includes('/')) {
+    return currentPaperBase ? `${currentPaperBase}/${src}` : src;
+  }
+  // Otherwise, assume an images/ folder within the paper directory.
+  const base = currentPaperBase ? `${currentPaperBase}/` : '';
+  return `${base}images/${src}`;
 }
 
 function convertEquations(text, eqNumbers = {}) {
@@ -973,18 +1286,75 @@ function renderPaperList(activeId) {
 
   listEl.innerHTML = '';
   PAPERS.forEach(paper => {
+    const group = document.createElement('div');
+    group.className = 'paper-group';
+
     const btn = document.createElement('button');
+    btn.className = 'paper-entry';
     const bullet = document.createElement('span');
     bullet.className = 'bullet';
     const label = document.createElement('span');
     label.textContent = paper.title;
+    label.className = 'paper-title';
+
+    const icons = document.createElement('span');
+    icons.className = 'entry-icons';
+    if (paper.repo) {
+      const link = document.createElement('a');
+      link.className = 'icon-link';
+      link.href = paper.repo;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      link.innerHTML = githubSvg();
+      link.title = 'View source';
+      link.addEventListener('click', ev => ev.stopPropagation());
+      icons.appendChild(link);
+    }
+    if (paper.pdf) {
+      const link = document.createElement('a');
+      link.className = 'icon-link';
+      link.href = paper.pdf;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      link.innerHTML = paperSvg();
+      link.title = 'View paper';
+      link.addEventListener('click', ev => ev.stopPropagation());
+      icons.appendChild(link);
+    }
+
     btn.appendChild(bullet);
     btn.appendChild(label);
+    if (icons.childElementCount) {
+      btn.appendChild(icons);
+    }
     if (paper.id === activeId) {
       btn.classList.add('active');
     }
     btn.addEventListener('click', () => selectPaper(paper));
-    listEl.appendChild(btn);
+    group.appendChild(btn);
+
+    if (paper.id === activeId && currentTOC.length) {
+      const acc = document.createElement('div');
+      acc.className = 'paper-accordion';
+      acc.innerHTML = '<div class="accordion-title">Contents</div>';
+      const ul = document.createElement('ul');
+      currentTOC.forEach(item => {
+        const li = document.createElement('li');
+        if (item.level === 3) {
+          li.className = 'toc-sub';
+        }
+        const a = document.createElement('a');
+        a.href = item.id ? `#${item.id}` : '#';
+        a.textContent = item.text;
+        a.addEventListener('click', ev => ev.stopPropagation());
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+      acc.appendChild(ul);
+      group.appendChild(acc);
+    }
+
+    listEl.appendChild(group);
   });
 }
 
@@ -998,18 +1368,38 @@ function selectPaper(paper) {
   }
   const newSearch = params.toString();
   history.replaceState(null, '', `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
-  loadPaper({ id: paper.id, title: paper.title, paperPath: paper.paper, bibPath: paper.bib });
+  loadPaper({
+    id: paper.id,
+    title: paper.title,
+    paperPath: paper.paper,
+    bibPath: paper.bib,
+    repo: paper.repo,
+    pdf: paper.pdf
+  });
 }
 
 function resetPanels() {
   const paperEl = document.getElementById('paper-content');
   const sidePanel = document.getElementById('side-panel-body');
+  const headingEl = document.getElementById('lean-heading');
+  const editor = document.getElementById('lean-editor');
+  const leanOutput = document.getElementById('lean-output');
   if (paperEl) {
     paperEl.innerHTML = '<p class="muted">Loading main paper…</p>';
   }
   if (sidePanel) {
-    sidePanel.innerHTML = '';
-    sidePanel.className = 'proof-placeholder';
+    sidePanel.className = 'reference-detail';
+  }
+  if (headingEl) {
+    headingEl.textContent = 'Click a lemma/theorem box to load Lean code';
+  }
+  if (editor) {
+    editor.value = '';
+    editor.readOnly = true;
+  }
+  if (leanOutput) {
+    leanOutput.textContent = 'Lean server output will appear here.';
+    leanOutput.className = 'lean-output muted';
   }
 }
 
@@ -1018,6 +1408,53 @@ function updatePaperSubtitle(text) {
   if (subtitle) {
     subtitle.textContent = `Rendered from ${text}`;
   }
+}
+
+function updateActionLinks(paper) {
+  const github = document.getElementById('action-github');
+  const pdf = document.getElementById('action-paper');
+  if (github && paper && paper.repo) {
+    github.href = paper.repo;
+  }
+  if (pdf && paper && paper.pdf) {
+    pdf.href = paper.pdf;
+  }
+}
+
+function slugifyHeading(text) {
+  return (text || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s\-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function buildTOC(container) {
+  if (!container) return;
+  // Skip title/author: use h2/h3 and drop the very first heading (paper title).
+  const headings = Array.from(container.querySelectorAll('h2, h3'));
+  const filtered = headings.filter((h, idx) => !(idx === 0));
+  if (!filtered.length) return [];
+
+  const seen = {};
+  filtered.forEach((h, idx) => {
+    const base = slugifyHeading(h.textContent) || `section-${idx + 1}`;
+    let slug = base;
+    let counter = 1;
+    while (seen[slug]) {
+      slug = `${base}-${counter++}`;
+    }
+    seen[slug] = true;
+    h.id = slug;
+  });
+
+  return filtered.map(h => ({
+    id: h.id,
+    text: h.textContent,
+    level: h.tagName.toLowerCase() === 'h3' ? 3 : 2
+  }));
 }
 
 function escapeHtml(str) {
