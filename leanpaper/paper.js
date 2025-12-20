@@ -14,8 +14,8 @@ const PAPERS = [
     title: 'Conformal Prediction for Ensembles',
     paper: 'conformal_prediction_for_ensembles/core.tex',
     bib: 'conformal_prediction_for_ensembles/refs.bib',
-    repo: 'https://github.com/yashpatel5400/robbuffet',
-    pdf: ''
+    repo: 'https://github.com/yashpatel5400/fusioncp/',
+    pdf: 'https://www.ambujtewari.com/research/patel25conformal.pdf'
   }
 ];
 const LATEX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/latex.js@0.12.6/dist/';
