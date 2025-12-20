@@ -169,12 +169,12 @@ where the maximum over a ball can be efficiently computed with traditional conve
     \Procedure{CPO-Opt}{}
     \Statex \textbf{Inputs: } Context $x$, CGM $q(C\mid X)$, Optimization steps $T$, Score samples $K$, Conformal quantile $\widehat{q}$
     \State $w \sim U(\mathcal{W}), \{\widehat{c_k}\}_{k=1}^{K} \sim q(C \mid x)$
-    \For{$t \in\{1,\ldots T\}$}
+    \For $t \in\{1,\ldots T\}$
     \State $\left\{c_{k}^{*} \gets \argmax_{\widehat{c} \in \mathcal{B}_{\widehat{q}}(\widehat{c}_{k})} f(w, \widehat{c})\right\}_{k=1}^{K}$
     \State $c^{*} \gets \argmax_{c_{k}^{*}} f(w, c_{k}^{*})$
     \State $w \gets \Pi_{\mathcal{W}} (w - \eta \nabla_{w} f(w, c^{*}))$
     \EndFor
-    \State{\textbf{Return} $w$}
+    \State \textbf{Return} $w$
     \EndProcedure
     \end{algorithmic}
 \end{algorithm}
@@ -231,29 +231,29 @@ user-specified $\epsilon$ volume tolerance. Critically, these volume estimates m
 as exchangeability with future test points is otherwise lost in conditioning on $\mathcal{D_C}$ for selecting $K^*$ \citep{yang2021finite}. We, thus, partition $\mathcal{D}_{\mathcal{C}} := \mathcal{D}_{\mathcal{C}_1} \cup \mathcal{D}_{\mathcal{C}_2}$, using $\mathcal{D}_{\mathcal{C}_1}$ for calibration and $\mathcal{D}_{\mathcal{C}_2}$ for volume estimation, detailed in \Cref{alg:CPO}.
 
 \begin{algorithm}
-  \caption{\label{alg:VolumeEst} \textproc{VolumeEst}}
+  \caption{\label{alg:VolumeEst} VolumeEst}
   \begin{algorithmic}[1]
     \Procedure{VolumeEst}{}
     \Statex \textbf{Inputs: } Context $x$, CGM $q(C\mid X)$, Conformal quantile $\widehat{q}$
     \State $\{\widehat{c}_k\}_{k = 1}^{K} \sim q(C_{1:K}\mid x)$
     \State $\left\{\{c_{k, m}\}_{m = 1}^{M}  \sim U(\mathcal{B}_{\widehat{q}}(\widehat{c}_{k})) \right\}_{k = 1}^{K}$
-    \State \textbf{Return} $|B_{\widehat{q}}| \sum_{k=1}^{K} \frac{1}{M}\sum_{m=1}^{M}\mathds{1}\left[c_{k, m} \in V(\widehat{c}_{k})\right]$
+    \State \textbf{Return} $|B_{\widehat{q}}| \sum_{k=1}^{K} \frac{1}{M}\sum_{m=1}^{M}\mathbb{I}\left[c_{k, m} \in V(\widehat{c}_{k})\right]$
     \EndProcedure
   \end{algorithmic}
 \end{algorithm}
 
 \begin{algorithm}
-  \caption{\label{alg:CPO} \textproc{CPO}}
+  \caption{\label{alg:CPO} CPO}
     \Procedure{CPO}{}
     \Statex \textbf{Inputs: } Context $x$, CGM $q(C\mid X)$, Optimization steps $T$, Desired coverage $1-\alpha$, Max samples $K_{\max}$, Volume Tolerance $\epsilon$, Calibration sets $\mathcal{D}_{\mathcal{C}_1}, \mathcal{D}_{\mathcal{C}_2}$
-    \For{$K \in\{1,\ldots K_{\max}\}$}
+    \For $K \in\{1,\ldots K_{\max}\}$
     \State $s_K(x, c) \gets \min_{\widehat{c}_k\in \{\widehat{c}_i\} \sim q(C_{1:K}\mid x) }\left[d\left(\widehat{c}_k, c\right) \right]$
     \State $\mathcal{S}_K \gets \left\{s_K(x^{(i)}, c^{(i)})\mid (x^{(i)}, c^{(i)})\in\mathcal{D}_{\mathcal{C}_1}\right\}$
     \State $\widehat{q}_K \gets \frac{\ceil{(|\mathcal{D}_{\mathcal{C}_1}| +1)(1-\alpha)}}{|\mathcal{D}_{\mathcal{C}_1}|} \text{ quantile of } \mathcal{S}_K$
-    \State $\widehat{\ell}_K \gets \frac{1}{|\mathcal{D}_{\mathcal{C}_2}|}\sum_{i=1}^{|\mathcal{D}_{\mathcal{C}_2}|}\textproc{VolumeEst}(x^{(i)}, q, \widehat{q}_K)$
+    \State $\widehat{\ell}_K \gets \frac{1}{|\mathcal{D}_{\mathcal{C}_2}|}\sum_{i=1}^{|\mathcal{D}_{\mathcal{C}_2}|}\text{VolumeEst}(x^{(i)}, q, \widehat{q}_K)$
     \EndFor
     \State $K^{*} \gets \argmin_{K} \left|\widehat{\ell}_K - \widehat{\ell}_{K + 1}\right| \leq \epsilon$
-    \State{\textbf{Return} $\textproc{CPO-Opt}(x, q, T, K^{*}, \widehat{q}_{K^{*}})$}
+    \State \textbf{Return} $\text{CPO-Opt}(x, q, T, K^{*}, \widehat{q}_{K^{*}})$
     \EndProcedure
     \end{algorithmic}
 \end{algorithm}

@@ -84,20 +84,13 @@
       <div id="divider-paper-proof" class="divider divider-vertical"></div>
 
       <aside class="proof-panel">
-        <div class="panel-heading">
-          <div>
-            <div class="panel-title">Details</div>
-            <div class="panel-subtitle">Click a citation or lemma/theorem to view its Lean formalization</div>
-          </div>
-        </div>
         <div class="proof-split">
           <div class="proof-section">
             <div class="proof-toolbar">
-              <div class="subheading">Lean code</div>
+              <div id="lean-heading" class="env-heading">Click a lemma/theorem box to load Lean code</div>
               <button id="lean-compile" class="compile-btn" type="button">Compile</button>
             </div>
             <div id="side-panel-body" class="reference-detail">
-              <div id="lean-heading" class="env-heading">Click a lemma/theorem box to load Lean code</div>
               <textarea id="lean-editor" class="lean-editor" spellcheck="false" placeholder="Lean code will appear here" readonly></textarea>
             </div>
           </div>

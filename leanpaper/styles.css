@@ -118,7 +118,8 @@ body {
 
 .divider-vertical {
   width: var(--divider);
-  cursor: col-resize;
+  cursor: default;
+  pointer-events: none;
   margin: 0 8px;
 }
 
