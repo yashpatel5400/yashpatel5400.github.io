@@ -1,0 +1,27 @@
+{
+  "name": "leanpaper-site",
+  "version": "0.1.0",
+  "description": "Static site to render core.tex with MathJax/LaTeX.js and link Lean proofs.",
+  "private": true,
+  "scripts": {
+    "dev": "http-server -p 8000",
+    "start": "npm run dev",
+    "build": "echo \"Static site - nothing to build\"",
+    "lean:server": "node lean-server.js"
+  },
+  "dependencies": {
+    "latex.js": "0.12.6",
+    "marked": "^9.1.6"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "keywords": [
+    "latex",
+    "mathjax",
+    "lean",
+    "static-site"
+  ],
+  "author": "",
+  "license": "MIT"
+}
