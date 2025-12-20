@@ -90,11 +90,11 @@ body {
 .layout {
   display: grid;
   grid-template-columns:
-    minmax(var(--col-nav), 1fr)
+    minmax(200px, 15%)
     var(--divider)
-    minmax(var(--col-paper), 2fr)
+    minmax(500px, 60%)
     var(--divider)
-    minmax(var(--col-proof), 1.2fr);
+    minmax(320px, 25%);
   gap: 0;
   column-gap: 8px;
   padding: 18px 24px 28px;
@@ -175,6 +175,8 @@ body {
   overflow-y: auto;
   flex: 1 1 auto;
   width: 100%;
+  max-width: 80%;
+  margin: 0 auto;
 }
 
 .paper-actions {
@@ -527,12 +529,19 @@ body {
 }
 
 .lemma-block,
+.theorem-block,
+.corollary-block,
 .proof-block {
   border: 1px solid rgba(12, 18, 30, 0.1);
   border-radius: 12px;
   padding: 12px 14px;
   margin: 18px 0;
   background: #eef2ff;
+}
+
+.theorem-block,
+.corollary-block {
+  background: #e9f0ff;
 }
 
 .proof-block {
