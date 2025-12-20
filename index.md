@@ -11,7 +11,7 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 
 I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. I am most excited in working on using ML for accelerating scientific discovery. 
 
-I am also currently in the midst of formalizing (using <a href="https://lean-lang.org/">Lean</a>) and packaging my research projects in my <a href="https://ypatel.io/leanpaper/">LeanPaper</a> project.
+I am also currently in the midst of formalizing (using <a href="https://lean-lang.org/">Lean</a>) and packaging my research work in my <a href="https://ypatel.io/leanpaper/">LeanPaper</a> project.
 
 <div class="timeline-section">
 <div class="timeline">
