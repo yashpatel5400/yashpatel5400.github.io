@@ -948,6 +948,9 @@ function formatRefLabel(label, eqNumbers = {}) {
   const prefix = parts[0] || '';
   const remainder = parts.slice(1).join(':');
 
+  if (prefix === 'section') {
+    return `Section ${humanizeLabel(remainder)}`;
+  }
   if (prefix === 'lemma') {
     return `Lemma: ${humanizeLabel(remainder)}`;
   }
@@ -1281,6 +1284,8 @@ function wrapLemmaProof(text) {
 
   let out = text;
   out = wrapEnv('lemma', 'Lemma.', 'lemma-block')(out);
+  out = wrapEnv('theorem', 'Theorem.', 'theorem-block')(out);
+  out = wrapEnv('corollary', 'Corollary.', 'corollary-block')(out);
   out = wrapEnv('proof', 'Proof.', 'proof-block')(out);
   return out;
 }
