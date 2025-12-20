@@ -8,6 +8,14 @@ const PAPERS = [
     bib: 'contextual_robust_optimization/refs.bib',
     repo: 'https://github.com/yashpatel5400/robbuffet',
     pdf: 'https://proceedings.mlr.press/v238/patel24a/patel24a.pdf'
+  },
+  {
+    id: 'ensembles',
+    title: 'Conformal Prediction for Ensembles',
+    paper: 'conformal_prediction_for_ensembles/core.tex',
+    bib: 'conformal_prediction_for_ensembles/refs.bib',
+    repo: 'https://github.com/yashpatel5400/robbuffet',
+    pdf: ''
   }
 ];
 const LATEX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/latex.js@0.12.6/dist/';
