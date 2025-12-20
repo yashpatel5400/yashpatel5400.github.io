@@ -1,10 +1,17 @@
-\title{Conformal Contextual Robust Optimization}
+\title{Conformal Prediction for Ensembles: Improving Efficiency via Score-Based Aggregation}
 
 \author{ Eduardo Ochoa Rivera\* \And Yash Patel\* \And  Ambuj Tewari }
 
 \begin{abstract}
   Distribution-free uncertainty estimation for ensemble methods is increasingly desirable due to the widening deployment of multi-modal black-box predictive models. Conformal prediction is one approach that avoids making strong distributional assumptions. Methods for conformal aggregation have been proposed for ensembled prediction, where the prediction regions of individual models are merged to retain coverage guarantees while minimizing conservatism. Merging the prediction \textit{regions} directly, however, can miss out on opportunities to further reduce conservatism by exploiting structures present in the conformal \textit{scores}. We, therefore, propose a novel framework that extends the standard scalar formulation of a score function to a multivariate score that produces more efficient prediction regions. We then demonstrate that such a framework can be efficiently leveraged in both classification and predict-then-optimize regression settings downstream and empirically show the advantage over alternate conformal aggregation methods.
 \end{abstract}
+
+\includevideo{https://www.youtube.com/watch?v=LcVYOBEY86M}
+\begin{figure*}
+  \caption{CSA provides a principled extension to the standard conformal prediction pipeline by leveraging ideas from higher-dimensional quantile regression to define quantile envelopes $\widehat{\mathcal{Q}}$ instead of scalar quantiles $\widehat{q}$. It does so by evaluating a collection of score functions (here $s_1$ and $s_2$) over the calibration dataset to define $\mathcal{S}$, finding quantiles $\{\widehat{q}_{m}\}$ over a set of projection directions $\{u_{m}\}$, and taking $\widehat{\mathcal{Q}}$ to be the intersection of the resulting half-planes $H(u_{m},\widehat{q}_{m})$. 
+  These quantile envelopes result in more informative prediction regions that can be used in downstream tasks. 
+  }
+\end{figure*}
 
 \section{Introduction}\label{section:intro}
 Ensemble methods are an oft-used class of statistical modeling techniques due to their ability to reduce variance or improve predictive accuracy \cite{schapire1999brief,zhang2012ensemble,dietterich2000ensemble}. 
@@ -16,14 +23,6 @@ One method for performing distribution-free uncertainty quantification is confor
 While calibration is guaranteed from this procedure, predictive efficiency, i.e., the size of the resulting prediction regions, can be large for poorly chosen score functions.
 
 As a result, methods have arisen to perform conformal model aggregation, which both provide uncertainty estimates of the ensembled predictions and do so in ways as to minimize the prediction region size \cite{gasparin2024conformal,trunov2023online,yang2024selection,v2023online,gasparin2024merging}. While such approaches succeed in reducing the prediction region size over naive aggregation, they all aggregate the \textit{separately conformalized} prediction regions of the predictors in the ensemble. In doing so, they forgo the possibility of automatically leveraging shared structure amongst the scores of the individual predictors, resulting in conservative prediction regions.
-
-\begin{figure*}
-  \centering 
-  \includegraphics[width=1.0\textwidth]{workflow.png}
-  \caption{CSA provides a principled extension to the standard conformal prediction pipeline by leveraging ideas from higher-dimensional quantile regression to define quantile envelopes $\widehat{\mathcal{Q}}$ instead of scalar quantiles $\widehat{q}$. It does so by evaluating a collection of score functions (here $s_1$ and $s_2$) over the calibration dataset to define $\mathcal{S}$, finding quantiles $\{\widehat{q}_{m}\}$ over a set of projection directions $\{u_{m}\}$, and taking $\widehat{\mathcal{Q}}$ to be the intersection of the resulting half-planes $H(u_{m},\widehat{q}_{m})$. 
-  These quantile envelopes result in more informative prediction regions that can be used in downstream tasks. 
-  }
-\end{figure*}
 
 We instead propose to perform aggregation in \textit{score space} by extending traditional conformal prediction to consider a multivariate score function and defining prediction regions using ``quantile envelopes'' in place of scalar quantiles. Doing so enables efficient, data-driven, automated conformal model aggregation. We demonstrate that this formulation retains the desired distribution-free coverage guarantees typical of standard conformal prediction and that the resulting prediction regions can be used efficiently in both classification and regression settings. Our contributions are: 
 

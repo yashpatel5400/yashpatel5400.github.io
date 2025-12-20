@@ -226,6 +226,7 @@ function normalizeLatex(body, citationMap, meta, eqNumbers) {
   text = normalizeQuotes(text);
   text = stripLeadingIndent(text);
   text = injectLabelAnchors(text);
+  text = replaceVideoEmbeds(text);
   text = wrapLemmaProof(text);
   text = applyTitleAuthor(text, meta, 'latex');
   text = convertTextStyles(text, 'latex');
@@ -287,6 +288,7 @@ function renderWithMarkdown(body, citationMap, meta, eqNumbers) {
 function latexToMarkdown(body, meta, eqNumbers) {
   let md = normalizeQuotes(body.replace(/^%.*$/gm, ''));
   md = applyTitleAuthor(md, meta, 'markdown');
+  md = replaceVideoEmbeds(md);
 
   md = md.replace(/\\twocolumn\[/g, '');
   md = md.replace(/^\]\s*$/gm, '');
@@ -1230,6 +1232,30 @@ function styleAlgorithmText(text, mode) {
   return styled.replace(/@@MATH(\d+)@@/g, (_m, idx) => mathMatches[Number(idx)] || '');
 }
 
+function replaceVideoEmbeds(text) {
+  const toEmbed = url => {
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtu.be')) {
+        const id = u.pathname.replace('/', '');
+        return `https://www.youtube.com/embed/${id}`;
+      }
+      if (u.hostname.includes('youtube.com')) {
+        const id = u.searchParams.get('v');
+        if (id) return `https://www.youtube.com/embed/${id}`;
+      }
+      return url;
+    } catch {
+      return url;
+    }
+  };
+
+  return text.replace(/\\includevideo\{([^}]*)\}/g, (_m, url) => {
+    const embed = toEmbed(url.trim());
+    return `<div class="video-embed"><div class="video-frame"><iframe src="${embed}" title="Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></div>`;
+  });
+}
+
 function transformAlgorithmLine(line) {
   const cmdMatch = line.match(/^\\([A-Za-z]+)\s*(\{([^}]*)\})?(.*)/);
   if (cmdMatch) {
@@ -1336,21 +1362,30 @@ function enumerateEquations(text) {
 function extractTitleAuthor(text) {
   const titleMatch = text.match(/\\title\{([^}]*)\}/);
   const authorMatch = text.match(/\\author\{([^}]*)\}/);
+  const subtitleMatch = text.match(/\\subtitle\{([^}]*)\}/);
   const title = titleMatch ? titleMatch[1].trim() : null;
+  const subtitle = subtitleMatch ? subtitleMatch[1].trim() : null;
   let authors = authorMatch ? authorMatch[1] : null;
   if (authors) {
     authors = authors.replace(/\\And/g, ',').replace(/\s+/g, ' ').replace(/\s*,\s*/g, ', ').trim();
   }
-  return { title, authors };
+  return { title, subtitle, authors };
 }
 
 function applyTitleAuthor(text, meta, mode) {
   if (!meta) return text;
-  let out = text.replace(/\\title\{[^}]*\}\s*/g, '').replace(/\\author\{[^}]*\}\s*/g, '');
+  let out = text
+    .replace(/\\title\{[^}]*\}\s*/g, '')
+    .replace(/\\author\{[^}]*\}\s*/g, '')
+    .replace(/\\subtitle\{[^}]*\}\s*/g, '');
 
   const lines = [];
   if (meta.title) {
     lines.push(mode === 'markdown' ? `# ${meta.title}` : `\\section*{${meta.title}}`);
+  }
+  if (meta.subtitle) {
+    // Subtitle as a second-level heading.
+    lines.push(mode === 'markdown' ? `## ${meta.subtitle}` : `\\subsection*{${meta.subtitle}}`);
   }
   if (meta.authors) {
     lines.push(mode === 'markdown' ? `*${meta.authors}*` : `\\textit{${meta.authors}}`);
