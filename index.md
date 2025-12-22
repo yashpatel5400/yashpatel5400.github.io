@@ -58,11 +58,10 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <p class="timeline-role">PhD in Statistics · <a class="timeline-mentor" href="https://ambujtewari.github.io/" rel="noopener" target="_blank">Ambuj Tewari</a></p>
 <p class="timeline-description">
           My research focuses during my PhD were on <a href="#uq_methods">principled uncertainty quantification</a>, <a href="#robust_decision_making">robust decision-making</a>, and <a href="#ai_for_science">AI for Science</a>. Given the importance of uncertainty in evaluating scientific hypotheses, my initial work primarily centered around one core question:
-
-          <i>
+          <br/>
+          <i class="timeline-question">
           How can we design principled uncertainty estimates for black-box models and use such uncertainty optimally for decision-making?
           </i>
-
           I am currently in the midst of formalizing (using <a href="https://lean-lang.org/">Lean</a>) and packaging my research work in my <a href="https://ypatel.io/leanpaper/">LeanPaper</a> project. Some highlights:
           <ul class="timeline-description-list">
           <li>Conformally Robust Decision Making [<a href="http://yashpatel5400.github.io/static/files/thesis_phd.pdf">PhD Thesis</a>] </li>

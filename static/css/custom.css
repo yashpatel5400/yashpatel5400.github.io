@@ -157,6 +157,13 @@
   color: #374151;
 }
 
+.timeline-question {
+  display: block;
+  text-align: center;
+  margin: 0.35rem 0 0.45rem;
+  font-style: italic;
+}
+
 .timeline-description-list {
   margin: 0.5rem 0 0.9rem 1.4rem;
   padding: 0;
