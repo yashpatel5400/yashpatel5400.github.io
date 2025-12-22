@@ -11,8 +11,6 @@ Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmoni
 
 I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. I am most excited in working on using ML for accelerating scientific discovery. 
 
-I am also currently in the midst of formalizing (using <a href="https://lean-lang.org/">Lean</a>) and packaging my research work in my <a href="https://ypatel.io/leanpaper/">LeanPaper</a> project.
-
 <div class="timeline-section">
 <div class="timeline">
 <div class="timeline-item">
@@ -65,7 +63,7 @@ I am also currently in the midst of formalizing (using <a href="https://lean-lan
           How can we design principled uncertainty estimates for black-box models and use such uncertainty optimally for decision-making?
           </i>
 
-          Some highlights:
+          I am currently in the midst of formalizing (using <a href="https://lean-lang.org/">Lean</a>) and packaging my research work in my <a href="https://ypatel.io/leanpaper/">LeanPaper</a> project. Some highlights:
           <ul class="timeline-description-list">
           <li>Conformally Robust Decision Making [<a href="http://yashpatel5400.github.io/static/files/thesis_phd.pdf">PhD Thesis</a>] </li>
           <li>Outstanding First-Year Ph.D. Student Award (2022) </li>
