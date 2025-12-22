@@ -14,7 +14,7 @@ const PAPERS = [
     title: 'Conformal Prediction for Ensembles',
     paper: 'conformal_prediction_for_ensembles/core.tex',
     bib: 'conformal_prediction_for_ensembles/refs.bib',
-    repo: 'https://github.com/yashpatel5400/fusioncp/',
+    repo: 'https://github.com/yashpatel5400/robensembles/',
     pdf: 'https://www.ambujtewari.com/research/patel25conformal.pdf'
   }
 ];
