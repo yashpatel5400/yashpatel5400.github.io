@@ -1,5 +1,5 @@
-const DEFAULT_PAPER_PATH = 'summaries/core.tex';
-const DEFAULT_BIB_PATH = '';
+const DEFAULT_PAPER_PATH = 'contextual_robust_optimization/core.tex';
+const DEFAULT_BIB_PATH = 'contextual_robust_optimization/refs.bib';
 const PAPERS = [
   {
     id: 'cpo',
@@ -65,7 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPaper(initial);
   setupProofResizer();
   attachCompileHandler();
-  attachSummariesLink();
 });
 
 async function loadPaper(selection) {
@@ -758,22 +757,6 @@ function attachCompileHandler() {
     }
     runLeanCheck(path, code);
   });
-}
-
-function attachSummariesLink() {
-  const titleEl = document.querySelector('.panel-title');
-  if (!titleEl) return;
-  titleEl.classList.add('clickable');
-  titleEl.addEventListener('click', () =>
-    selectPaper({
-      id: null,
-      title: 'Summaries',
-      paper: 'summaries/core.tex',
-      bib: '',
-      repo: '',
-      pdf: ''
-    })
-  );
 }
 
 function setupResizers() {

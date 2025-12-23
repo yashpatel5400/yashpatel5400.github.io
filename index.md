@@ -443,7 +443,6 @@ Outside of my formal research projects, I still enjoy spinning up miscellaneous 
 
 <b><a href="https://yashpatel5400.github.io/intertect/" target="_blank" rel="noopener">Intertect: Learn Computer Architecture</a><a class="paper-code-link" href="https://github.com/yashpatel5400/intertect" target="_blank" rel="noopener">[Code]</a></b><br/>
 <b><a href="{{ '/shader-playground/' | relative_url }}">Interactive Shader Playground</a></b><br/>
-<b><a href="{{ '/leanpaper/' | relative_url }}">LeanPaper: Conformal Contextual Robust Optimization</a></b><br/>
 <b><a href="https://ypatel.io/files/winograd.pdf" target="_blank" rel="noopener">Winograd Neural Operators</a><a class="paper-code-link" href="https://github.com/yashpatel5400/mcufno/" target="_blank" rel="noopener">[Code]</a></b><br/>
 <b><a href="http://yashpatel5400.github.io/files/light_transport_mis.pdf" target="_blank" rel="noopener">Multiple Importance Sampling in Light Transport</a><a class="paper-code-link" href="https://github.com/yashpatel5400/raytrace-montecarlo" target="_blank" rel="noopener">[Code]</a></b> <br/>
 <b><a href="https://github.com/yashpatel5400/agoric-sdk/commit/99fe4a4da207372cd70a6ec291dc36002974484f" target="_blank" rel="noopener">Chainlink Price Aggregation for Agoric</a><a class="paper-code-link" href="https://github.com/yashpatel5400/agoric-sdk/commit/99fe4a4da207372cd70a6ec291dc36002974484f" target="_blank" rel="noopener">[Code]</a></b> <br/>
