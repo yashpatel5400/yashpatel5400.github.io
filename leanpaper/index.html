@@ -8,9 +8,9 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: 'DM Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at 30% 30%, #1a2b45, #0d1624 55%), #0d1624;
-      color: #e6edf7;
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      background: #f4f0e9;
+      color: #2d241a;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -20,11 +20,11 @@
     .card {
       max-width: 760px;
       width: 100%;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.08);
       border-radius: 16px;
       padding: 26px 28px;
-      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.08);
     }
     h1 {
       margin: 0 0 8px;
@@ -32,16 +32,16 @@
       letter-spacing: 0.01em;
     }
     .sub {
-      color: #b8c3d8;
+      color: #6c6257;
       margin: 0 0 18px;
       font-size: 16px;
     }
     p {
       line-height: 1.65;
-      color: #d7e1f1;
+      color: #3a3127;
     }
     a {
-      color: #93c5fd;
+      color: #d88c2b;
     }
     .actions {
       margin-top: 20px;
@@ -55,31 +55,26 @@
       gap: 8px;
       padding: 10px 14px;
       border-radius: 12px;
-      border: 1px solid rgba(147, 197, 253, 0.6);
-      background: linear-gradient(135deg, #3b82f6, #60a5fa);
-      color: #0c1420;
+      border: 1px solid rgba(196, 122, 31, 0.4);
+      background: #c47a1f;
+      color: #1b1208;
       font-weight: 700;
       text-decoration: none;
-      box-shadow: 0 10px 24px rgba(59, 130, 246, 0.25);
+      box-shadow: none;
       transition: transform 120ms ease, box-shadow 120ms ease;
     }
     .btn:hover {
       transform: translateY(-1px);
-      box-shadow: 0 14px 28px rgba(59, 130, 246, 0.35);
+      box-shadow: none;
     }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>LeanPaper</h1>
-    <div class="sub">Formalizing research with conformal prediction + Lean</div>
     <p>
-      My research has focused on extending conformal prediction and leveraging its uncertainty quantification for robust decision-making with minimal conservatism. A representative starting point is
-      <a href="https://arxiv.org/pdf/2107.07511" target="_blank" rel="noreferrer">this conformal prediction survey</a>.
-      As formal theorem provers get better, this site packages the papers, code, and accompanying Lean formalizations in one place.
-    </p>
-    <p>
-      Use the app to browse papers, view their TeX, explore references, and open the corresponding Lean proofs side by side.
+      My research has focused on extending <a href="https://arxiv.org/pdf/2107.07511" target="_blank" rel="noreferrer"></a>conformal prediction</a> and leveraging its uncertainty quantification for robust decision-making with minimal conservatism.
+      This site packages the papers, code, and accompanying Lean formalizations in one place.
     </p>
     <div class="actions">
       <a class="btn" href="./app.html">Enter LeanPaper</a>
