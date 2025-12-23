@@ -1,5 +1,5 @@
-const DEFAULT_PAPER_PATH = 'contextual_robust_optimization/core.tex';
-const DEFAULT_BIB_PATH = 'contextual_robust_optimization/refs.bib';
+const DEFAULT_PAPER_PATH = 'summaries/core.tex';
+const DEFAULT_BIB_PATH = '';
 const PAPERS = [
   {
     id: 'cpo',
@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPaper(initial);
   setupProofResizer();
   attachCompileHandler();
+  attachSummariesLink();
 });
 
 async function loadPaper(selection) {
@@ -136,6 +137,7 @@ async function loadPaper(selection) {
 
     attachCitationHandlers(bibEntries);
     attachLemmaHandlers();
+    attachPaperLinks();
     if (paperEl) {
       paperEl.scrollTop = 0;
     }
@@ -650,6 +652,27 @@ function attachLemmaHandlers() {
   });
 }
 
+function attachPaperLinks() {
+  const paperEl = document.getElementById('paper-content');
+  if (!paperEl) return;
+  paperEl.querySelectorAll('a').forEach(anchor => {
+    const href = anchor.getAttribute('href');
+    if (!href) return;
+    const url = new URL(href, window.location.href);
+    const path = url.pathname.replace(/^\//, '');
+    const match = PAPERS.find(p =>
+      p.paper === href ||
+      p.paper === path ||
+      url.pathname.endsWith(p.paper)
+    );
+    if (!match) return;
+    anchor.addEventListener('click', ev => {
+      ev.preventDefault();
+      selectPaper(match);
+    });
+  });
+}
+
 async function loadLeanProof(label) {
   const source = PROOF_SOURCES[label];
   if (!source) {
@@ -735,6 +758,22 @@ function attachCompileHandler() {
     }
     runLeanCheck(path, code);
   });
+}
+
+function attachSummariesLink() {
+  const titleEl = document.querySelector('.panel-title');
+  if (!titleEl) return;
+  titleEl.classList.add('clickable');
+  titleEl.addEventListener('click', () =>
+    selectPaper({
+      id: null,
+      title: 'Summaries',
+      paper: 'summaries/core.tex',
+      bib: '',
+      repo: '',
+      pdf: ''
+    })
+  );
 }
 
 function setupResizers() {
@@ -1536,12 +1575,24 @@ function updatePaperSubtitle(text) {
 function updateActionLinks(paper) {
   const github = document.getElementById('action-github');
   const pdf = document.getElementById('action-paper');
-  if (github && paper && paper.repo) {
-    github.href = paper.repo;
-  }
-  if (pdf && paper && paper.pdf) {
-    pdf.href = paper.pdf;
-  }
+  const applyLink = (el, href) => {
+    if (!el) return;
+    if (href) {
+      el.href = href;
+      el.classList.remove('muted');
+      el.style.pointerEvents = 'auto';
+      el.style.opacity = '1';
+      el.style.display = 'inline-flex';
+    } else {
+      el.href = '#';
+      el.classList.add('muted');
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0';
+      el.style.display = 'none';
+    }
+  };
+  applyLink(github, paper && paper.repo);
+  applyLink(pdf, paper && paper.pdf);
 }
 
 function slugifyHeading(text) {
