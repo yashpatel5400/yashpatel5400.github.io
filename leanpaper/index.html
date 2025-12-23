@@ -3,105 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LeanPaper | Conformal Contextual Robust Optimization</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Lora:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <script>
-    window.MathJax = {
-      tex: {
-        packages: {'[+]': ['ams']},
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']],
-        macros: {
-          argmax: '\\operatorname{arg\\,max}',
-          argmin: '\\operatorname{arg\\,min}',
-          logit: '\\operatorname{logit}',
-          ceil: ['\\left\\lceil #1 \\right\\rceil', 1],
-          floor: ['\\left\\lfloor #1 \\right\\rfloor', 1],
-          textproc: ['\\texttt{#1}', 1],
-          mathds: ['\\mathbb{#1}', 1]
-        }
-      },
-      options: {
-        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
-      }
-    };
-  </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/latex.js@0.12.6/dist/latex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script>
-    // Point the Lean frontend at the Kimina Lean server API you just deployed
-    window.LEAN_SERVER_ENDPOINT = 'https://kimina-lean-server.onrender.com/verify';
-  </script>
-  <script defer src="paper.js"></script>
+  <title>LeanPaper Landing</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'DM Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 30% 30%, #1a2b45, #0d1624 55%), #0d1624;
+      color: #e6edf7;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+    }
+    .card {
+      max-width: 760px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 26px 28px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.25);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0.01em;
+    }
+    .sub {
+      color: #b8c3d8;
+      margin: 0 0 18px;
+      font-size: 16px;
+    }
+    p {
+      line-height: 1.65;
+      color: #d7e1f1;
+    }
+    a {
+      color: #93c5fd;
+    }
+    .actions {
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(147, 197, 253, 0.6);
+      background: linear-gradient(135deg, #3b82f6, #60a5fa);
+      color: #0c1420;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 10px 24px rgba(59, 130, 246, 0.25);
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 28px rgba(59, 130, 246, 0.35);
+    }
+  </style>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">LP</div>
-        <div>
-          <div class="brand-name">LeanPaper</div>
-        </div>
-      </div>
-      <div id="paper-status" class="status-pill">Loading main paper…</div>
-    </header>
-
-    <main class="layout">
-      <aside class="nav-panel">
-        <div class="panel-heading">
-          <div>
-            <div class="panel-title">Papers</div>
-            <div class="panel-subtitle">Select a paper to view</div>
-          </div>
-        </div>
-        <div id="paper-list" class="paper-list"></div>
-      </aside>
-      <div id="divider-nav-paper" class="divider divider-vertical"></div>
-
-      <section class="paper-panel">
-        <div class="paper-actions">
-          <a id="action-github" class="link-pill" href="https://github.com/yashpatel5400/robbuffet" target="_blank" rel="noreferrer">
-            <span class="icon github-mark" aria-hidden="true">
-              <svg viewBox="0 0 16 16" focusable="false">
-                <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.5 7.5 0 0 1 4.01 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path>
-              </svg>
-            </span>
-            <span>GitHub</span>
-          </a>
-          <a id="action-paper" class="link-pill" href="https://proceedings.mlr.press/v238/patel24a/patel24a.pdf" target="_blank" rel="noreferrer">
-            <span class="icon" aria-hidden="true">📄</span>
-            <span>Paper</span>
-          </a>
-        </div>
-        <div id="paper-content" class="paper-content">
-          <p class="muted">Loading main paper…</p>
-        </div>
-      </section>
-      <div id="divider-paper-proof" class="divider divider-vertical"></div>
-
-      <aside class="proof-panel">
-        <div class="proof-split">
-          <div class="proof-section">
-            <div class="proof-toolbar">
-              <div id="lean-heading" class="env-heading">Click a lemma/theorem box to load Lean code</div>
-              <button id="lean-compile" class="compile-btn" type="button">Compile</button>
-            </div>
-            <div id="side-panel-body" class="reference-detail">
-              <textarea id="lean-editor" class="lean-editor" spellcheck="false" placeholder="Lean code will appear here" readonly></textarea>
-            </div>
-          </div>
-          <div id="divider-proof-split" class="divider divider-horizontal"></div>
-          <div class="proof-section">
-            <div class="subheading">Lean server</div>
-            <div id="lean-output" class="lean-output muted">Lean server output will appear here.</div>
-          </div>
-        </div>
-      </aside>
-    </main>
+  <div class="card">
+    <h1>LeanPaper</h1>
+    <div class="sub">Formalizing research with conformal prediction + Lean</div>
+    <p>
+      My research has focused on extending conformal prediction and leveraging its uncertainty quantification for robust decision-making with minimal conservatism. A representative starting point is
+      <a href="https://arxiv.org/pdf/2107.07511" target="_blank" rel="noreferrer">this conformal prediction survey</a>.
+      As formal theorem provers get better, this site packages the papers, code, and accompanying Lean formalizations in one place.
+    </p>
+    <p>
+      Use the app to browse papers, view their TeX, explore references, and open the corresponding Lean proofs side by side.
+    </p>
+    <div class="actions">
+      <a class="btn" href="./app.html">Enter LeanPaper</a>
+    </div>
   </div>
 </body>
 </html>
