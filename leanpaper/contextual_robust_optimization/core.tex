@@ -63,18 +63,18 @@
   Data-driven approaches to predict-then-optimize decision-making problems seek to mitigate the risk of uncertainty region misspecification in safety-critical settings. Current approaches, however, suffer from considering overly conservative uncertainty regions, often resulting in suboptimal decision-making. To this end, we propose Conformal-Predict-Then-Optimize (CPO), a framework for leveraging highly informative, nonconvex conformal prediction regions over high-dimensional spaces based on conditional generative models, which have the desired distribution-free coverage guarantees. Despite guaranteeing robustness, such black-box optimization procedures alone inspire little confidence owing to the lack of explanation of why a particular decision was found to be optimal. We, therefore, augment CPO to additionally provide semantically meaningful visual summaries of the uncertainty regions to give qualitative intuition for the optimal decision. We highlight the CPO framework by demonstrating results on a suite of simulation-based inference benchmark tasks and a vehicle routing task based on probabilistic weather prediction.
 \end{abstract}
 
+\includevideo{https://youtu.be/EYgh6XcLpA0}
+\begin{figure*}
+  \caption{CPO leverages informative, non-convex conformal prediction regions for robust predict-then-optimize decision making. CPO uses a score function such that the resulting prediction regions can be decomposed into convex subregions over which optimization can be carried out efficiently.
+  }
+\end{figure*}
+
 \section{Introduction}\label{section:intro}
 Predict-then-optimize or contextual robust optimization problems are of long-standing interest in safety-critical settings where decision-making happens under uncertainty \citep{sun2023predict, elmachtoub2022smart, elmachtoub2020decision, pervsak2023contextual}. In traditional robust optimization, results are made to be robust to distributions anticipated to be present upon deployment \citep{ben2009robust, beyer2007robust}. Since such decisions are sensitive to proper model specification, recent efforts have sought to supplant this with data-driven uncertainty regions \citep{cheramin2021data, bertsimas2018data, shang2019data, johnstone2021conformal}. 
 
 Model misspecification is ever more present in \textit{contextual} robust optimization, spurring efforts to define similar data-driven uncertainty regions \citep{ohmori2021predictive, chenreddy2022data, sun2023predict}. Such methods, however, focus on box- and ellipsoid-based uncertainty regions, both of which are necessarily convex and often overly conservative, resulting in suboptimal decision-making. 
 
 Conformal prediction provides a principled framework for producing distribution-free prediction regions with marginal frequentist coverage guarantees \citep{angelopoulos2021gentle, shafer2008tutorial}. By using conformal prediction on a user-defined score function $s(x,y)$ and obtaining an empirical $1-\alpha$ quantile $\widehat{q}(\alpha)$ of $s(x,y)$ over a calibration set $\mathcal{D}_{\mathcal{C}}$, prediction regions $\mathcal{C}(x) = \{y \mid s(x, y) \le \widehat{q}(\alpha)\}$ attain marginal coverage guarantees. Such prediction regions, however, are notably defined \textit{implicitly}. For simple scores, such as residuals, an explicit expression of such regions can be written, making these the most common approaches used in practice \citep{tumu2023physics,horwitz2022conffusion,angelopoulos2022image,hu2022robust,mao2022valid}. 
-
-\begin{figure*}
-  \includegraphics{workflow.png}
-  \caption{CPO leverages informative, non-convex conformal prediction regions for robust predict-then-optimize decision making. CPO uses a score function such that the resulting prediction regions can be decomposed into convex subregions over which optimization can be carried out efficiently. Visual summaries $\{\xi^{(i)}\}$ of the prediction region can similarly be efficiently sampled to gain intuition on the optimal decision $w^{*}$.
-  }
-\end{figure*}
 
 The disadvantage is that such score functions ignore the structure that is often present in high-dimensional data, such as images. 
 Choices of simplistic scores, thus, tend to be overly conservative and often produce convex prediction regions even when $\mathcal{P}(Y|X)$ is non-convex. 
