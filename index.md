@@ -4,7 +4,7 @@ title: Yash Patel
 ---
 
 <p align="center">
-<span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="{{ '/blog/' | relative_url }}">Blog</a>
+<span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="{{ '/ai-for-science-reading-group/' | relative_url }}">AI for Science RG</a> | <a href="{{ '/blog/' | relative_url }}">Blog</a>
 </p>
 
 Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmonic</a>. I have previously worked as a research fellow at <a href="#anthropic">Anthropic</a>, a senior software engineer at <a href="#meta">Meta</a>, and a software engineering intern at <a href="#waymo">Waymo</a> and studied at the <a href="#university-of-michigan">University of Michigan (PhD)</a> and <a href="#princeton">Princeton University (BA)</a>.
