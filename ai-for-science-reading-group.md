@@ -6,19 +6,19 @@ slack_invite: http://ai-for-science-sf.slack.com/
 signup_form: https://docs.google.com/spreadsheets/d/1l1CQtxwq7mSs1Zdt0TiZWXl-MyegZVNZa028RaSKADA/edit?usp=sharing
 notes_doc: https://example.com/ai4s-notes
 drive_link: https://example.com/ai4s-archive
-meeting_day_time: "Sundays · 3:00–4:30pm"
+meeting_day_time: "Sundays · TBD"
 meeting_location: "San Francisco (in-person)"
 next_session:
-  date: "February 1, 2026"
-  time: "3:00–4:30pm PT"
-  title: "rbio1 — training scientific reasoning LLMs with biological world models as soft verifiers"
-  presenter: "TBD — volunteer!"
-  paper_title: "rbio1 — training scientific reasoning LLMs with biological world models as soft verifiers"
-  paper_link: https://www.biorxiv.org/content/10.1101/2025.08.18.670981v3.full.pdf
+  date: "TBD"
+  time: "TBD"
+  title: "TBD"
+  presenter: "TBD"
+  paper_title: ""
+  paper_link: ""
   location: "San Francisco (in-person)"
-  abstract: "How to pair large language models with biological world models that act as soft verifiers for scientific reasoning tasks, plus a walkthrough of the training setup."
-  deck_link: https://example.com/next-deck
-  notes_link: https://example.com/next-notes
+  abstract: ""
+  deck_link: ""
+  notes_link: ""
 past_sessions: []
 resources:
   - label: "Slack workspace"
@@ -62,43 +62,64 @@ resources:
         <h2>Next session</h2>
       </div>
     </div>
-    <div class="ai4s-next-card">
-      <div class="ai4s-next-card__header">
-        <span class="ai4s-pill solid">Weekly</span>
-        <span class="ai4s-next-date">{{ page.next_session.date }} · {{ page.next_session.time }}</span>
-      </div>
-      <h3 class="ai4s-next-title">{{ page.next_session.title }}</h3>
-      <p class="ai4s-next-meta">
-        <strong>{{ page.next_session.presenter }}</strong>
-        {% if page.next_session.paper_link %}
-          · <a class="ai4s-text-link" href="{{ page.next_session.paper_link }}">{{ page.next_session.paper_title }}</a>
-        {% else %}
-          · {{ page.next_session.paper_title }}
-        {% endif %}
-      </p>
-      <p class="ai4s-next-abstract">{{ page.next_session.abstract }}</p>
-      <div class="ai4s-detail-grid">
-        <div class="ai4s-detail">
-          <span class="ai4s-detail-label">Location</span>
-          <span class="ai4s-detail-value">{{ page.next_session.location }}</span>
+    {% if page.next_session.title and page.next_session.title != '' and page.next_session.title != 'TBD' %}
+      <div class="ai4s-next-card">
+        <div class="ai4s-next-card__header">
+          <span class="ai4s-pill solid">Weekly</span>
+          <span class="ai4s-next-date">{{ page.next_session.date }} · {{ page.next_session.time }}</span>
         </div>
-        <div class="ai4s-detail">
-          <span class="ai4s-detail-label">Flow</span>
-          <span class="ai4s-detail-value">30 min walkthrough · 30 min discussion · wrap-up</span>
+        <h3 class="ai4s-next-title">{{ page.next_session.title }}</h3>
+        <p class="ai4s-next-meta">
+          <strong>{{ page.next_session.presenter }}</strong>
+          {% if page.next_session.paper_link %}
+            · <a class="ai4s-text-link" href="{{ page.next_session.paper_link }}">{{ page.next_session.paper_title }}</a>
+          {% else %}
+            · {{ page.next_session.paper_title }}
+          {% endif %}
+        </p>
+        <p class="ai4s-next-abstract">{{ page.next_session.abstract }}</p>
+        <div class="ai4s-detail-grid">
+          <div class="ai4s-detail">
+            <span class="ai4s-detail-label">Location</span>
+            <span class="ai4s-detail-value">{{ page.next_session.location }}</span>
+          </div>
+          <div class="ai4s-detail">
+            <span class="ai4s-detail-label">Flow</span>
+            <span class="ai4s-detail-value">30 min walkthrough · 30 min discussion · wrap-up</span>
+          </div>
+        </div>
+        <div class="ai4s-session-links">
+          {% if page.next_session.paper_link %}
+            <a class="ai4s-tag" href="{{ page.next_session.paper_link }}">Paper</a>
+          {% endif %}
+          {% if page.next_session.deck_link %}
+            <a class="ai4s-tag" href="{{ page.next_session.deck_link }}">Deck</a>
+          {% endif %}
+          {% if page.next_session.notes_link %}
+            <a class="ai4s-tag" href="{{ page.next_session.notes_link }}">Notes</a>
+          {% endif %}
         </div>
       </div>
-      <div class="ai4s-session-links">
-        {% if page.next_session.paper_link %}
-          <a class="ai4s-tag" href="{{ page.next_session.paper_link }}">Paper</a>
-        {% endif %}
-        {% if page.next_session.deck_link %}
-          <a class="ai4s-tag" href="{{ page.next_session.deck_link }}">Deck</a>
-        {% endif %}
-        {% if page.next_session.notes_link %}
-          <a class="ai4s-tag" href="{{ page.next_session.notes_link }}">Notes</a>
-        {% endif %}
+    {% else %}
+      <div class="ai4s-next-card ai4s-session-empty">
+        <div class="ai4s-next-card__header">
+          <span class="ai4s-pill solid">Weekly</span>
+          <span class="ai4s-next-date">Date · TBD</span>
+        </div>
+        <h3 class="ai4s-next-title">Next session details coming soon</h3>
+        <p class="ai4s-next-abstract">We’re finalizing the paper and presenter. Check back soon or propose a paper above.</p>
+        <div class="ai4s-detail-grid">
+          <div class="ai4s-detail">
+            <span class="ai4s-detail-label">Location</span>
+            <span class="ai4s-detail-value">{{ page.next_session.location }}</span>
+          </div>
+          <div class="ai4s-detail">
+            <span class="ai4s-detail-label">Flow</span>
+            <span class="ai4s-detail-value">30 min walkthrough · 30 min discussion · wrap-up</span>
+          </div>
+        </div>
       </div>
-    </div>
+    {% endif %}
   </div>
 
   <div class="ai4s-section" id="past-sessions">
