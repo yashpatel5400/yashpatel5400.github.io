@@ -2,14 +2,12 @@
 layout: landing
 title: AI for Science Reading Group
 permalink: /ai-for-science-reading-group/
-slack_invite: http://ai-for-science-global.slack.com/
-meet_link: https://meet.google.com/vfb-ortv-ddm
-calendar_link: https://meet.google.com/vfb-ortv-ddm
+slack_invite: http://ai-for-science-sf.slack.com/
 signup_form: https://docs.google.com/spreadsheets/d/1l1CQtxwq7mSs1Zdt0TiZWXl-MyegZVNZa028RaSKADA/edit?usp=sharing
 notes_doc: https://example.com/ai4s-notes
 drive_link: https://example.com/ai4s-archive
 meeting_day_time: "Sundays · 3:00–4:30pm"
-meeting_location: "San Francisco + Google Meet"
+meeting_location: "San Francisco (in-person)"
 next_session:
   date: "February 1, 2026"
   time: "3:00–4:30pm PT"
@@ -17,24 +15,21 @@ next_session:
   presenter: "TBD — volunteer!"
   paper_title: "rbio1 — training scientific reasoning LLMs with biological world models as soft verifiers"
   paper_link: https://www.biorxiv.org/content/10.1101/2025.08.18.670981v3.full.pdf
-  location: "San Francisco (in-person) + Google Meet"
+  location: "San Francisco (in-person)"
   abstract: "How to pair large language models with biological world models that act as soft verifiers for scientific reasoning tasks, plus a walkthrough of the training setup."
   deck_link: https://example.com/next-deck
   notes_link: https://example.com/next-notes
 past_sessions: []
 resources:
   - label: "Slack workspace"
-    href: http://ai-for-science-global.slack.com/
+    href: http://ai-for-science-sf.slack.com/
     description: "Day-to-day coordination, quick paper polls, and reminders."
-  - label: "Weekly Google Meet"
-    href: https://meet.google.com/vfb-ortv-ddm
-    description: "Live link for the Sunday session."
-  - label: "Recordings Archive"
+  - label: "Slides & notes archive"
     href: https://example.com/ai4s-archive
-    description: "Decks, code snippets, and notes from past sessions."
+    description: "Decks and shared notes from sessions."
   - label: "Running notes"
     href: https://example.com/ai4s-notes
-    description: "Living document with action items and open questions."
+    description: "Living document of discussion summaries and open questions."
 ---
 
 <div class="ai4s-page">
@@ -56,7 +51,6 @@ resources:
     </div>
     <div class="ai4s-hero__actions">
       <a class="ai4s-button primary" href="{{ page.slack_invite }}">Join the Slack</a>
-      <a class="ai4s-button ghost" href="{{ page.meet_link }}">Join Google Meet</a>
       <a class="ai4s-button text" href="{{ page.signup_form }}">Propose a paper</a>
     </div>
   </div>
@@ -110,7 +104,7 @@ resources:
   <div class="ai4s-section" id="past-sessions">
     <div class="ai4s-section__header">
       <div>
-        <p class="ai4s-eyebrow">Recordings + slides</p>
+        <p class="ai4s-eyebrow">Session archive</p>
         <h2>Recent sessions</h2>
       </div>
       <a class="ai4s-text-link" href="{{ page.drive_link }}">Browse the archive</a>
@@ -143,8 +137,8 @@ resources:
       {% else %}
         <article class="ai4s-card ai4s-session-card ai4s-session-empty">
           <div class="ai4s-session-date">Coming soon</div>
-          <h3 class="ai4s-session-title">We’ll post recordings after our first session</h3>
-          <p class="ai4s-session-note">Check back here once we’ve met. In the meantime, you can grab the live Meet link or propose a paper above.</p>
+          <h3 class="ai4s-session-title">We’ll post materials after our first session</h3>
+          <p class="ai4s-session-note">Check back here once we’ve met. In the meantime, grab details above or propose a paper.</p>
         </article>
       {% endif %}
     </div>
@@ -166,9 +160,7 @@ resources:
               {% case resource.label %}
                 {% when "Slack workspace" %}
                   <i class="fa-brands fa-slack"></i>
-                {% when "Weekly Google Meet" %}
-                  <i class="fa-solid fa-video"></i>
-                {% when "Recordings Archive" %}
+                {% when "Slides & notes archive" %}
                   <i class="fa-solid fa-clapperboard"></i>
                 {% when "Running notes" %}
                   <i class="fa-solid fa-note-sticky"></i>
@@ -195,6 +187,25 @@ resources:
       If you’d like to support snacks, space, or speakers, reach out to
       <a href="mailto:ypatel5400@gmail.com">ypatel5400@gmail.com</a>.
     </p>
+  </div>
+
+  <div class="ai4s-section" id="organizers">
+    <div class="ai4s-section__header">
+      <div>
+        <p class="ai4s-eyebrow">Organizers</p>
+        <h2>Reach us</h2>
+      </div>
+    </div>
+    <div class="ai4s-reading-grid">
+      <article class="ai4s-card ai4s-paper">
+        <h3 class="ai4s-paper-title"><a href="https://ypatel.io">Yash Patel</a></h3>
+        <p class="ai4s-paper-note">Research Engineer @ <a href="https://harmonic.fun">Harmonic</a>.</p>
+      </article>
+      <article class="ai4s-card ai4s-paper">
+        <h3 class="ai4s-paper-title"><a href="https://www.linkedin.com/in/alexbeatson/">Alex Beatson</a></h3>
+        <p class="ai4s-paper-note">Co-Founder of <a href="https://www.axi.om/">Axiom Bio</a>.</p>
+      </article>
+    </div>
   </div>
 </div>
   </div>
