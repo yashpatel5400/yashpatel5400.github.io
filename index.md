@@ -36,7 +36,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <div class="timeline-content">
 <div class="timeline-heading">
 <span class="timeline-organization">Anthropic</span>
-<span class="timeline-duration"><strong>Nov 2025 – Present</strong></span>
+<span class="timeline-duration"><strong>Nov 2025 – Jan 2026</strong></span>
 </div>
 <p class="timeline-role">Research Engineer, AI Safety Fellowship</p>
 <p class="timeline-description">
@@ -314,7 +314,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
 
 <div class="paper-entry">
   <div class="paper-logo">
-    <img src="{{ '/static/images/logos/arxiv.png' | relative_url }}" alt="arXiv logo">
+    <img src="{{ '/static/images/logos/aistats.png' | relative_url }}" alt="AISTATS logo">
   </div>
   <div class="paper-body">
     <b><a href="https://arxiv.org/abs/2405.16250" target="_blank" rel="noopener">Conformal Robust Control of Linear Systems</a><a class="paper-code-link" href="https://github.com/yashpatel5400/crc" target="_blank" rel="noopener">[Code]</a></b><br/>
@@ -453,7 +453,7 @@ Outside of my formal research projects, I still enjoy spinning up miscellaneous 
   Miscellaneous
 </h2>
 
-Outside of research and programming, I really enjoy [reading](https://www.goodreads.com/user/show/83094203-yash-patel), <a href="{{ '/blog/' | relative_url }}">writing</a>, and lifting! Here are my current numbers (and slightly outdated videos):
+Outside of research and programming, I really enjoy [reading](https://www.goodreads.com/user/show/83094203-yash-patel), <a href="https://substack.com/@ypatel">writing</a>, and lifting! Here are my current numbers (and slightly outdated videos):
 
 <div class="lifting-stats">
 <div class="lift-card">
