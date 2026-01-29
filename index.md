@@ -40,7 +40,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-role">Research Engineer, AI Safety Fellowship</p>
 <p class="timeline-description">
-          Working on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a>. Selected as one of 32 researchers out of 2,000+ applicants.
+          Working on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a> by creating an embodied robotics eval harness in Mujoco. Selected as one of 32 researchers out of 2,000+ applicants.
         </p>
 </div>
 </div>
@@ -340,7 +340,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
 
 <div class="paper-entry">
   <div class="paper-logo">
-    <img src="{{ '/static/images/logos/arxiv.png' | relative_url }}" alt="NeurIPS logo">
+    <img src="{{ '/static/images/logos/iclr.png' | relative_url }}" alt="ICLR logo">
   </div>
   <div class="paper-body">
     <b><a href="https://arxiv.org/pdf/2505.17838" target="_blank" rel="noopener">Continuum Transformers Perform In-Context Learning by Operator Gradient Descent</a><a class="paper-code-link" href="https://github.com/yashpatel5400/opicl" target="_blank" rel="noopener">[Code]</a></b><br/>
