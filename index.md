@@ -318,7 +318,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
   </div>
   <div class="paper-body">
     <b><a href="https://arxiv.org/abs/2405.16250" target="_blank" rel="noopener">Conformal Robust Control of Linear Systems</a><a class="paper-code-link" href="https://github.com/yashpatel5400/crc" target="_blank" rel="noopener">[Code]</a></b><br/>
-    <i>In Submission</i><br/>
+    <i>International Conference on Artificial Intelligence and Statistics (AISTATS), 2026</i><br/>
     <b>Patel, Y.</b>, Rayan, S., Tewari, A.<br/>
   </div>
 </div>
@@ -344,7 +344,7 @@ My work has largely focused on developing methods with end-to-end statistical gu
   </div>
   <div class="paper-body">
     <b><a href="https://arxiv.org/pdf/2505.17838" target="_blank" rel="noopener">Continuum Transformers Perform In-Context Learning by Operator Gradient Descent</a><a class="paper-code-link" href="https://github.com/yashpatel5400/opicl" target="_blank" rel="noopener">[Code]</a></b><br/>
-    <i>In Submission</i><br/>
+    <i>International Conference on Learning Representations (ICLR), 2026</i><br/>
     <i>ICLR AI for Accelerated Materials Design Workshop, 2025</i><br/>
     <b>Patel, Y.*</b>, Mishra, A.* (* equal contribution), Tewari, A.<br/>
   </div>
