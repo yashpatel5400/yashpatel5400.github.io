@@ -284,6 +284,9 @@ My work has largely focused on developing methods with end-to-end statistical gu
     <i>Neural Information Processing Systems (NeurIPS), 2025</i><br/>
     Rivera, E.O.* , <b>Patel, Y.*</b> (* equal contribution), Tewari, A.<br/>
   </div>
+  <a class="paper-video" href="https://www.youtube.com/watch?v=LcVYOBEY86M" aria-label="Watch Conformal Prediction for Ensembles talk">
+    <img src="https://img.youtube.com/vi/LcVYOBEY86M/hqdefault.jpg" alt="Conformal Prediction for Ensembles video thumbnail">
+  </a>
 </div>
 
 <div class="paper-entry">
@@ -310,6 +313,9 @@ My work has largely focused on developing methods with end-to-end statistical gu
     <i>International Conference on Artificial Intelligence and Statistics (AISTATS), 2024 (<b>Oral</b>)</i><br/>
     <b>Patel, Y.</b>, Rayan, S., Tewari, A.<br/>
   </div>
+  <a class="paper-video" href="https://www.youtube.com/watch?v=EYgh6XcLpA0" aria-label="Watch Conformal Contextual Robust Optimization talk">
+    <img src="https://img.youtube.com/vi/EYgh6XcLpA0/hqdefault.jpg" alt="Conformal Contextual Robust Optimization video thumbnail">
+  </a>
 </div>
 
 <div class="paper-entry">
