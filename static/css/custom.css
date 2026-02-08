@@ -569,15 +569,16 @@ header img:hover {
 
 /* Layout adjustments for narrower sidebar and wider content */
 .wrapper {
-  max-width: 1440px;
+  width: 100%;
+  max-width: 62vw;
   margin: 0 auto;
-  padding: 0 1rem 0 1.5rem;
+  padding: 0 1.5rem;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   grid-template-areas:
     "header section"
     "footer section";
-  column-gap: 2rem;
+  column-gap: 2.5rem;
   align-items: flex-start;
 }
 
@@ -595,6 +596,8 @@ header {
 section {
   grid-area: section;
   width: 100%;
+  padding-right: 0;
+  margin-right: 0;
 }
 
 footer {
@@ -611,6 +614,12 @@ footer {
       "footer";
     row-gap: 2rem;
     padding: 0 1rem 0 1.4rem;
+    max-width: 100%;
+  }
+
+  section {
+    padding-right: 0;
+    max-width: 100%;
   }
 }
 

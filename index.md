@@ -4,12 +4,12 @@ title: Yash Patel
 ---
 
 <p align="center">
-<span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="{{ '/ai-for-science-reading-group/' | relative_url }}">AI for Science RG</a> | <a href="{{ '/blog/' | relative_url }}">Blog</a>
+<span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="https://designhorizon.substack.com/">Blog</a>
 </p>
 
-Hi! I'm an incoming research engineer at <a href="https://harmonic.fun/">Harmonic</a>. I have previously worked as a research fellow at <a href="#anthropic">Anthropic</a>, a senior software engineer at <a href="#meta">Meta</a>, and a software engineering intern at <a href="#waymo">Waymo</a> and studied at the <a href="#university-of-michigan">University of Michigan (PhD)</a> and <a href="#princeton">Princeton University (BA)</a>.
+Hi! I'm a research engineer at <a href="https://harmonic.fun/">Harmonic</a> working primarily on post-training and search algorithms. I have previously worked as a research fellow at <a href="#anthropic">Anthropic</a> on robotics red-teaming, a senior software engineer at <a href="#meta">Meta</a> on computer vision/graphics, and a software engineering intern at <a href="#waymo">Waymo</a> on importance sampling and studied at the <a href="#university-of-michigan">University of Michigan (PhD)</a> and <a href="#princeton">Princeton University (BA)</a>. I'm most excited in working on using ML for accelerating scientific and mathematical discovery. 
 
-I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. I am most excited in working on using ML for accelerating scientific discovery. 
+I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, OpenCL, and Unity</b> and research experience in <b>uncertainty quantification, robust/convex optimization, rare-event detection, control theory, and PDE surrogate modeling</b>. 
 
 <div class="timeline-section">
 <div class="timeline">
@@ -25,6 +25,10 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <span class="timeline-duration"><strong>Jan 2026 – Present</strong></span>
 </div>
 <p class="timeline-role">Research Engineer</p>
+<p class="timeline-description">
+  Working model post-training and search algorithms.
+</p>
+</div>
 </div>
 </div>
 <div class="timeline-item" id="anthropic">
@@ -40,7 +44,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-role">Research Engineer, AI Safety Fellowship</p>
 <p class="timeline-description">
-          Working on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a> by creating an embodied robotics eval harness in Mujoco. Selected as one of 32 researchers out of 2,000+ applicants.
+          Worked on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a> by creating an embodied robotics eval harness in Mujoco. Selected as one of 32 researchers out of 2,000+ applicants.
         </p>
 </div>
 </div>
@@ -57,7 +61,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-role">PhD in Statistics · <a class="timeline-mentor" href="https://ambujtewari.github.io/" rel="noopener" target="_blank">Ambuj Tewari</a></p>
 <p class="timeline-description">
-          My research focuses during my PhD were on <a href="#uq_methods">principled uncertainty quantification</a>, <a href="#robust_decision_making">robust decision-making</a>, and <a href="#ai_for_science">AI for Science</a>. Given the importance of uncertainty in evaluating scientific hypotheses, my initial work primarily centered around one core question:
+          My research focuses during my PhD were on <a href="#uq_methods">principled uncertainty quantification</a>, <a href="#robust_decision_making">robust decision-making</a>, and <a href="#ai_for_science">AI for Science</a>. Given the importance of uncertainty in evaluating scientific hypotheses, my work primarily centered around one core question:
           <br/>
           <i class="timeline-question">
           How can we design principled uncertainty estimates for black-box models and use such uncertainty optimally for decision-making?
@@ -84,7 +88,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-subitem-role">Data Science PhD Intern, Simulations · <a class="timeline-mentor" href="https://amansinha.com/" rel="noopener" target="_blank">Aman Sinha</a></p>
 <p class="timeline-subitem-note">
-                Implemented an ADMM-based distributed convex optimization algorithm in C++ for importance sampling of rare events to achieve a 20x speedup in the simulations pipeline.
+                Implemented an ADMM-based distributed convex optimization algorithm in C++ for importance sampling of rare events to achieve a 20x speedup in the eval pipeline.
               </p>
 </div>
 </div>
@@ -425,7 +429,7 @@ AP Pozo, J Virskus, G Venkatesh, K Li, SC Chen, A Kumar, R Ranjan, BK Cabral, SA
 
 During my PhD, I have also had the opportunity to mentor the following fantastic undergraduate and master's students on their theses and research projects.
 
-<b>[Guyang (Kevin) Cao](https://www.linkedin.com/in/guyang-kevin-cao-410b28205/)</b> (<b><u>Next step:</u></b> Ph.D. in Computer Science at University of Wisconsin-Madison)<br/>
+<b>[Guyang (Kevin) Cao](https://guyangcao.github.io/)</b> (<b><u>Next step:</u></b> Ph.D. in Computer Science at University of Wisconsin-Madison)<br/>
 <i>[Honors Thesis](https://www.ambujtewari.com/theses/Kevin_Cao_Undergraduate_Thesis_2024.pdf), 2023-24</i><br/>
 <i>Undergraduate Research Program in Statistics, 2023</i><br/> 
 [Non-parametric Conformal Distributionally Robust Optimization](https://openreview.net/pdf?id=WavglEUVTR)<br/>
@@ -459,7 +463,7 @@ Outside of my formal research projects, I still enjoy spinning up miscellaneous 
   Miscellaneous
 </h2>
 
-Outside of research and programming, I really enjoy [reading](https://www.goodreads.com/user/show/83094203-yash-patel), <a href="https://substack.com/@ypatel">writing</a>, and lifting! Here are my current numbers (and slightly outdated videos):
+Outside of research and programming, I really enjoy [reading](https://www.goodreads.com/user/show/83094203-yash-patel), <a href="https://designhorizon.substack.com/">writing</a>, and lifting! Here are my current numbers (and slightly outdated videos):
 
 <div class="lifting-stats">
 <div class="lift-card">
