@@ -25,10 +25,6 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <span class="timeline-duration"><strong>Jan 2026 – Present</strong></span>
 </div>
 <p class="timeline-role">Research Engineer</p>
-<p class="timeline-description">
-  Working model post-training and search algorithms.
-</p>
-</div>
 </div>
 </div>
 <div class="timeline-item" id="anthropic">
@@ -44,7 +40,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-role">Research Engineer, AI Safety Fellowship</p>
 <p class="timeline-description">
-          Worked on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a> by creating an embodied robotics eval harness in Mujoco. Selected as one of 32 researchers out of 2,000+ applicants.
+          Working on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a> by creating an embodied robotics eval harness in Mujoco. Selected as one of 32 researchers out of 2,000+ applicants.
         </p>
 </div>
 </div>

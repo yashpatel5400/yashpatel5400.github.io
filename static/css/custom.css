@@ -570,7 +570,7 @@ header img:hover {
 /* Layout adjustments for narrower sidebar and wider content */
 .wrapper {
   width: 100%;
-  max-width: 62vw;
+  max-width: 60vw;
   margin: 0 auto;
   padding: 0 1.5rem;
   display: grid;
