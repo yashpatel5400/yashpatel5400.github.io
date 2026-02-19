@@ -351,8 +351,18 @@ My work has largely focused on developing methods with end-to-end statistical gu
   <div class="paper-body">
     <b><a href="https://arxiv.org/pdf/2505.17838" target="_blank" rel="noopener">Continuum Transformers Perform In-Context Learning by Operator Gradient Descent</a><a class="paper-code-link" href="https://github.com/yashpatel5400/opicl" target="_blank" rel="noopener">[Code]</a></b><br/>
     <i>International Conference on Learning Representations (ICLR), 2026</i><br/>
-    <i>ICLR AI for Accelerated Materials Design Workshop, 2025</i><br/>
     <b>Patel, Y.*</b>, Mishra, A.* (* equal contribution), Tewari, A.<br/>
+  </div>
+</div>
+
+<div class="paper-entry">
+  <div class="paper-logo">
+    <img src="{{ '/static/images/logos/arxiv.png' | relative_url }}" alt="arXiv logo">
+  </div>
+  <div class="paper-body">
+    <b><a href="https://arxiv.org/abs/2602.08215" target="_blank" rel="noopener">Distribution-Free Robust Predict-Then-Optimize in Function Spaces</a><a class="paper-code-link" href="https://github.com/yashpatel5400/fpo" target="_blank" rel="noopener">[Code]</a></b><br/>
+    <i>In Submission</i><br/>
+    <b>Patel, Y.*</b>, Tewari, A.<br/>
   </div>
 </div>
 
