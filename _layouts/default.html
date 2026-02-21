@@ -1,5 +1,9 @@
 <!DOCTYPE html>
 <html lang="{{ site.lang | default: "en-US" }}">
+  {% assign is_blog_standalone = false %}
+  {% if page.permalink == '/blog/' or page.layout == 'post' %}
+    {% assign is_blog_standalone = true %}
+  {% endif %}
   <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -12,8 +16,9 @@
     <![endif]-->
     {% include head-custom.html %}
   </head>
-  <body>
+  <body{% if is_blog_standalone %} class="blog-standalone"{% endif %}>
     <div class="wrapper">
+      {% unless is_blog_standalone %}
       <header>
         <h1 class="site-title">{{ site.title | default: site.github.repository_name }}</h1>
 
@@ -33,18 +38,21 @@
           <li><a href="{{ site.github.tar_url }}">Download <strong>TAR Ball</strong></a></li>
           <li><a href="{{ site.github.repository_url }}">View On <strong>GitHub</strong></a></li>
         </ul>
-        {% endif %}
+{% endif %}
       </header>
+      {% endunless %}
       <section>
 
       {{ content }}
 
       </section>
+      {% unless is_blog_standalone %}
       <footer>
         {% if site.github.is_project_page %}
         <p>This project is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a></p>
         {% endif %}
       </footer>
+      {% endunless %}
     </div>
     <script src="{{ "/assets/js/scale.fix.js" | relative_url }}"></script>
     <script>

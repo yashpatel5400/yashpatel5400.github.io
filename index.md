@@ -4,7 +4,7 @@ title: Yash Patel
 ---
 
 <p align="center">
-<span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="https://designhorizon.substack.com/">Blog</a>
+<span class="nav-current">Home</span> | <a href="#papers">Selected Papers</a> | <a href="#mentoring">Mentoring</a> | <a href="#projects">Projects</a> | <a href="{{ '/blog/' | relative_url }}">Blog</a>
 </p>
 
 Hi! I'm a research engineer at <a href="https://harmonic.fun/">Harmonic</a> working primarily on post-training and search algorithms. I have previously worked as a research fellow at <a href="#anthropic">Anthropic</a> on robotics red-teaming, a senior software engineer at <a href="#meta">Meta</a> on computer vision/graphics, and a software engineering intern at <a href="#waymo">Waymo</a> on importance sampling and studied at the <a href="#university-of-michigan">University of Michigan (PhD)</a> and <a href="#princeton">Princeton University (BA)</a>. I'm most excited in working on using ML for accelerating scientific and mathematical discovery. 
@@ -469,7 +469,7 @@ Outside of my formal research projects, I still enjoy spinning up miscellaneous 
   Miscellaneous
 </h2>
 
-Outside of research and programming, I really enjoy [reading](https://www.goodreads.com/user/show/83094203-yash-patel), <a href="https://designhorizon.substack.com/">writing</a>, and lifting! Here are my current numbers (and slightly outdated videos):
+Outside of research and programming, I really enjoy [reading](https://www.goodreads.com/user/show/83094203-yash-patel), <a href="{{ '/blog/' | relative_url }}">writing</a>, and lifting! Here are my current numbers (and slightly outdated videos):
 
 <div class="lifting-stats">
 <div class="lift-card">

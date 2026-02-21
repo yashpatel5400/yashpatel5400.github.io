@@ -3,6 +3,9 @@ description: ypatel5400[at]gmail.com
 logo: /headshot.jpg
 remote_theme: pages-themes/minimal@v0.2.0
 google_analytics: 
+blog_editor_enabled: true
+blog_editor_repo: yashpatel5400/yashpatel5400.github.io
+blog_editor_branch: master
 plugins:
 - jekyll-remote-theme
 - jekyll-seo-tag
