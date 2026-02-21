@@ -35,3 +35,5 @@ Thumbs.db
 .sass-cache/
 .hugo_build.lock
 hugo_stats.json
+draft_api/*.sqlite3
+draft_api/__pycache__/

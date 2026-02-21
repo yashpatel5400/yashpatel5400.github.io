@@ -24,6 +24,9 @@ sitemap: false
     id="blog-owner-editor"
     data-editor-repo="{{ site.blog_editor_repo }}"
     data-editor-branch="{{ site.blog_editor_branch }}"
+    data-draft-api-base="{{ site.data.editor.draft_api_base }}"
+    data-draft-api-auth="{{ site.data.editor.draft_api_auth_mode | default: 'session' }}"
+    data-draft-id="{{ site.data.editor.draft_id | default: 'main' }}"
     hidden
   >
     <div class="blog-editor-workbench">
@@ -53,6 +56,7 @@ sitemap: false
         </div>
 
         <div class="blog-editor-actions">
+          <button type="button" data-editor-connect-db>Reconnect</button>
           <button type="button" data-editor-save>Save Draft</button>
           <button type="button" data-editor-copy>Copy Markdown</button>
           <button type="button" data-editor-download>Download File</button>
@@ -98,11 +102,15 @@ sitemap: false
     const pbkdf2Iterations = Number('{{ site.data.editor.rounds }}') || 310000;
     const repo = shell.dataset.editorRepo || '';
     const branch = shell.dataset.editorBranch || 'master';
-
-    if (!expectedKeyHex || !pbkdf2SaltHex || !pbkdf2Iterations) return;
+    const draftApiBase = (shell.dataset.draftApiBase || '').trim().replace(/\/+$/, '');
+    const draftApiAuthMode = (shell.dataset.draftApiAuth || 'session').trim().toLowerCase();
+    const draftId = (shell.dataset.draftId || 'main').trim();
+    const sessionUnlockEnabled = draftApiAuthMode === 'session' && Boolean(draftApiBase);
+    const localUnlockEnabled = Boolean(expectedKeyHex && pbkdf2SaltHex && pbkdf2Iterations) && !sessionUnlockEnabled;
 
     const statusEl = shell.querySelector('[data-editor-status]');
     const lockBtn = shell.querySelector('[data-editor-lock-btn]');
+    const connectDbBtn = shell.querySelector('[data-editor-connect-db]');
     const titleInput = shell.querySelector('#blog-editor-title');
     const dateInput = shell.querySelector('#blog-editor-date');
     const bodyInput = shell.querySelector('#blog-editor-body');
@@ -113,6 +121,7 @@ sitemap: false
     const downloadBtn = shell.querySelector('[data-editor-download]');
     const openGithubBtn = shell.querySelector('[data-editor-open-github]');
     const draftStorageKey = 'make-post-draft-v1';
+    const draftApiTokenStorageKey = 'make-post-draft-api-token-v1';
 
     let shellVisible = false;
     let failedAttempts = 0;
@@ -123,6 +132,77 @@ sitemap: false
       statusEl.textContent = message;
       statusEl.classList.remove('is-error', 'is-success');
       if (kind) statusEl.classList.add(kind === 'error' ? 'is-error' : 'is-success');
+    }
+
+    function hasDraftApiConfigured() {
+      return Boolean(draftApiBase);
+    }
+
+    function isSessionAuthMode() {
+      return draftApiAuthMode === 'session';
+    }
+
+    function getStoredApiToken() {
+      try {
+        return window.sessionStorage.getItem(draftApiTokenStorageKey) || '';
+      } catch (err) {
+        return '';
+      }
+    }
+
+    function setStoredApiToken(token) {
+      try {
+        if (token) {
+          window.sessionStorage.setItem(draftApiTokenStorageKey, token);
+        } else {
+          window.sessionStorage.removeItem(draftApiTokenStorageKey);
+        }
+      } catch (err) {
+        // no-op
+      }
+    }
+
+    async function requestSessionToken(passphrase) {
+      const response = await fetch(draftApiBase + '/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passphrase: passphrase })
+      });
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      const payload = await response.json();
+      const token = payload && typeof payload.token === 'string' ? payload.token.trim() : '';
+      if (!token) {
+        throw new Error('Draft DB session response is invalid.');
+      }
+      setStoredApiToken(token);
+      return token;
+    }
+
+    async function ensureApiToken(forcePrompt, passphraseHint) {
+      if (!hasDraftApiConfigured()) return '';
+      if (!forcePrompt) {
+        const existing = getStoredApiToken();
+        if (existing) return existing;
+      }
+
+      if (isSessionAuthMode()) {
+        const passphraseInput =
+          typeof passphraseHint === 'string' && passphraseHint.trim()
+            ? passphraseHint.trim()
+            : window.prompt('Passphrase');
+        if (!passphraseInput || !passphraseInput.trim()) return '';
+        const token = await requestSessionToken(passphraseInput.trim());
+        setStoredApiToken(token);
+        return token;
+      }
+
+      const tokenInput = window.prompt('Draft DB token');
+      if (!tokenInput || !tokenInput.trim()) return '';
+      const token = tokenInput.trim();
+      setStoredApiToken(token);
+      return token;
     }
 
     function todayString() {
@@ -232,7 +312,7 @@ sitemap: false
       previewTimer = window.setTimeout(updatePreview, 120);
     }
 
-    function saveDraft(showMessage) {
+    function saveDraftLocal(showMessage) {
       try {
         const payload = {
           title: titleInput.value,
@@ -251,7 +331,7 @@ sitemap: false
       }
     }
 
-    function loadDraft(showMessage) {
+    function loadDraftLocal(showMessage) {
       try {
         const raw = window.localStorage.getItem(draftStorageKey);
         if (!raw) return false;
@@ -271,10 +351,95 @@ sitemap: false
       }
     }
 
+    async function parseErrorMessage(response) {
+      try {
+        const payload = await response.json();
+        if (payload && typeof payload.error === 'string') return payload.error;
+      } catch (err) {
+        // no-op
+      }
+      return 'Draft DB request failed.';
+    }
+
+    async function apiRequest(path, options, promptForToken) {
+      if (!hasDraftApiConfigured()) return null;
+      let token = getStoredApiToken();
+      if (!token && promptForToken) {
+        token = await ensureApiToken(true);
+      }
+      if (!token) return null;
+
+      const request = Object.assign({}, options || {});
+      const headers = Object.assign({}, request.headers || {});
+      headers.Authorization = 'Bearer ' + token;
+      if (!headers['Content-Type'] && request.body) {
+        headers['Content-Type'] = 'application/json';
+      }
+      request.headers = headers;
+
+      let response = await fetch(draftApiBase + path, request);
+      if (response.status === 401 && promptForToken) {
+        setStoredApiToken('');
+        token = await ensureApiToken(true);
+        if (!token) return null;
+        request.headers.Authorization = 'Bearer ' + token;
+        response = await fetch(draftApiBase + path, request);
+      }
+      return response;
+    }
+
+    async function loadDraftRemote(showMessage, promptForToken) {
+      if (!hasDraftApiConfigured()) return false;
+      const response = await apiRequest('/api/drafts/' + encodeURIComponent(draftId), { method: 'GET' }, promptForToken);
+      if (response === null) return false;
+      if (response.status === 404) {
+        if (showMessage) setStatus('Connected to Draft DB. No remote draft yet.', 'success');
+        return false;
+      }
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+
+      const payload = await response.json();
+      const draft = payload && payload.draft ? payload.draft : null;
+      if (!draft || typeof draft !== 'object') return false;
+
+      if (typeof draft.title === 'string') titleInput.value = draft.title;
+      if (typeof draft.draft_date === 'string') dateInput.value = draft.draft_date;
+      if (typeof draft.body === 'string') bodyInput.value = draft.body;
+      if (!dateInput.value) dateInput.value = todayString();
+      saveDraftLocal(false);
+      if (showMessage) setStatus('Draft loaded from database.', 'success');
+      return true;
+    }
+
+    async function saveDraftRemote(showMessage, promptForToken) {
+      if (!hasDraftApiConfigured()) return false;
+      const built = buildPostContent(true);
+      const payload = {
+        title: titleInput.value,
+        date: ensureDate(),
+        body: bodyInput.value,
+        filename: built.filename,
+        markdown: built.markdown
+      };
+      const response = await apiRequest(
+        '/api/drafts/' + encodeURIComponent(draftId),
+        { method: 'PUT', body: JSON.stringify(payload) },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      if (showMessage) setStatus('Draft saved to database.', 'success');
+      return true;
+    }
+
     function scheduleAutosave() {
       if (autosaveTimer) window.clearTimeout(autosaveTimer);
       autosaveTimer = window.setTimeout(function() {
-        saveDraft(false);
+        saveDraftLocal(false);
       }, 400);
     }
 
@@ -361,11 +526,18 @@ sitemap: false
       return bytesToHex(new Uint8Array(bits));
     }
 
-    function showShell() {
+    async function showShell() {
       shell.hidden = false;
       if (lockState) lockState.hidden = true;
       shellVisible = true;
-      loadDraft(false);
+      loadDraftLocal(false);
+      if (hasDraftApiConfigured() && getStoredApiToken()) {
+        try {
+          await loadDraftRemote(false, false);
+        } catch (err) {
+          // no-op
+        }
+      }
       if (!dateInput.value) dateInput.value = todayString();
       updatePreview();
       refreshPreviewWhenRenderersReady();
@@ -373,7 +545,8 @@ sitemap: false
     }
 
     function hideShell() {
-      saveDraft(false);
+      saveDraftLocal(false);
+      setStoredApiToken('');
       shell.hidden = true;
       if (lockState) lockState.hidden = false;
       shellVisible = false;
@@ -382,6 +555,12 @@ sitemap: false
 
     async function requestUnlockAndShow() {
       if (shellVisible) return;
+
+      const hasSessionUnlock = hasDraftApiConfigured() && isSessionAuthMode();
+      if (!localUnlockEnabled && !hasSessionUnlock) {
+        window.alert('Editor authentication is not configured.');
+        return;
+      }
 
       const now = Date.now();
       if (now < blockedUntil) {
@@ -393,19 +572,36 @@ sitemap: false
       if (passphrase === null || !passphrase.trim()) return;
 
       try {
-        const derivedHex = await derivePassphraseKeyHex(passphrase.trim());
-        if (derivedHex !== expectedKeyHex) {
-          failedAttempts += 1;
-          if (failedAttempts >= 5) {
-            failedAttempts = 0;
-            blockedUntil = Date.now() + 60000;
+        const normalizedPassphrase = passphrase.trim();
+
+        if (localUnlockEnabled) {
+          const derivedHex = await derivePassphraseKeyHex(normalizedPassphrase);
+          if (derivedHex !== expectedKeyHex) {
+            failedAttempts += 1;
+            if (failedAttempts >= 5) {
+              failedAttempts = 0;
+              blockedUntil = Date.now() + 60000;
+            }
+            window.alert('Unable to open editor.');
+            return;
           }
-          window.alert('Unable to open editor.');
-          return;
+        }
+
+        if (hasSessionUnlock) {
+          const token = await ensureApiToken(false, normalizedPassphrase);
+          if (!token) {
+            failedAttempts += 1;
+            if (failedAttempts >= 5) {
+              failedAttempts = 0;
+              blockedUntil = Date.now() + 60000;
+            }
+            window.alert('Unable to open editor.');
+            return;
+          }
         }
 
         failedAttempts = 0;
-        showShell();
+        await showShell();
         setStatus('Editor unlocked.', 'success');
       } catch (err) {
         window.alert('Unable to open editor.');
@@ -435,9 +631,77 @@ sitemap: false
       hideShell();
     });
 
+    if (connectDbBtn) {
+      connectDbBtn.addEventListener('click', async function() {
+        if (!hasDraftApiConfigured()) {
+          setStatus('Draft DB URL is not configured in _data/editor.yml.', 'error');
+          return;
+        }
+        let token = '';
+        try {
+          token = await ensureApiToken(true);
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to authenticate with Draft DB.', 'error');
+          return;
+        }
+        if (!token) {
+          setStatus(
+            isSessionAuthMode()
+              ? 'Passphrase is required to connect.'
+              : 'Draft DB token is required to connect.',
+            'error'
+          );
+          return;
+        }
+        try {
+          const restored = await loadDraftRemote(false, false);
+          updatePreview();
+          if (restored) {
+            setStatus('Connected to Draft DB and loaded draft.', 'success');
+          } else {
+            setStatus('Connected to Draft DB.', 'success');
+          }
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to connect to Draft DB.', 'error');
+        }
+      });
+    }
+
     if (saveBtn) {
-      saveBtn.addEventListener('click', function() {
-        saveDraft(true);
+      saveBtn.addEventListener('click', async function() {
+        const localSaved = saveDraftLocal(false);
+        if (!hasDraftApiConfigured()) {
+          if (localSaved) {
+            setStatus('Saved locally. Configure Draft DB URL for backend saves.', 'success');
+          } else {
+            setStatus('Unable to save draft locally.', 'error');
+          }
+          return;
+        }
+
+        try {
+          const remoteSaved = await saveDraftRemote(false, true);
+          if (remoteSaved) {
+            setStatus('Draft saved to database.', 'success');
+            return;
+          }
+          if (localSaved) {
+            setStatus(
+              isSessionAuthMode()
+                ? 'Saved locally. Passphrase is required for backend save.'
+                : 'Saved locally. Draft DB token is required for backend save.',
+              'error'
+            );
+          } else {
+            setStatus('Unable to save draft.', 'error');
+          }
+        } catch (err) {
+          if (localSaved) {
+            setStatus('Saved locally. Database save failed: ' + (err.message || 'unknown error') + '.', 'error');
+          } else {
+            setStatus(err && err.message ? err.message : 'Unable to save draft.', 'error');
+          }
+        }
       });
     }
 
@@ -496,7 +760,7 @@ sitemap: false
 
     window.addEventListener('hashchange', maybeRevealFromHash);
     window.addEventListener('beforeunload', function() {
-      if (shellVisible) saveDraft(false);
+      if (shellVisible) saveDraftLocal(false);
     });
 
     hideShell();

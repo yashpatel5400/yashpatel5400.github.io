@@ -1,3 +1,6 @@
 guard: af7046ddd59f59fd06a13e291f665633d1bf6c0e0e20933c6dab89f9b0173058
 grain: 73a7253f662bafade501ac249e007f4e
 rounds: 310000
+draft_api_base: "http://127.0.0.1:8787"
+draft_api_auth_mode: "session"
+draft_id: "main"
