@@ -510,11 +510,30 @@
   font-size: 0.92rem;
 }
 
+.blog-editor-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.05rem;
+  align-items: start;
+}
+
+.blog-editor-compose,
+.blog-editor-render {
+  min-width: 0;
+}
+
 .blog-editor-form-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.55rem;
   margin-bottom: 0.85rem;
+}
+
+.blog-editor-body-input {
+  min-height: 450px;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .blog-editor-output {
@@ -539,17 +558,52 @@
   margin-bottom: 1rem;
 }
 
+.blog-editor-render h4 {
+  margin: 0 0 0.7rem;
+}
+
 .blog-editor-preview {
   border: 1px solid #d8e1ef;
   border-radius: 10px;
   background: #fff;
   padding: 1rem 1.05rem;
-  min-height: 120px;
-  max-height: 460px;
+  min-height: 560px;
+  max-height: 74vh;
   overflow: auto;
   font-family: "Palatino Linotype", "Book Antiqua", Palatino, "URW Palladio L", Georgia, serif;
   color: #121821;
   line-height: 1.65;
+}
+
+.blog-editor-preview-article > :last-child {
+  margin-bottom: 0;
+}
+
+.blog-editor-preview-title {
+  margin: 0 0 0.35rem;
+  color: #111;
+  font-size: 2.35rem;
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+
+.blog-editor-preview-date {
+  margin: 0 0 0.8rem;
+  color: #5f6772;
+  font-size: 0.88rem;
+  font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+}
+
+.blog-editor-preview-excerpt {
+  margin: 0 0 1rem;
+  color: #3f4857;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.blog-editor-preview-content {
+  margin-bottom: 0;
 }
 
 .blog-editor-preview p,
@@ -733,6 +787,23 @@
   .blog-editor-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .blog-editor-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .blog-editor-body-input {
+    min-height: 360px;
+  }
+
+  .blog-editor-preview {
+    min-height: 340px;
+    max-height: none;
+  }
+
+  .blog-editor-preview-title {
+    font-size: 1.75rem;
   }
 
   .post-article {

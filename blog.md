@@ -28,44 +28,69 @@ permalink: /blog/
     <p class="blog-editor-note">
       This generates a Jekyll post file for <code>_posts/</code>, with preview, copy/download, and GitHub prefill.
     </p>
+    <div class="blog-editor-workbench">
+      <div class="blog-editor-compose">
+        <div class="blog-editor-form-grid">
+          <label for="blog-editor-title">Title</label>
+          <input type="text" id="blog-editor-title" placeholder="Post title" />
 
-    <div class="blog-editor-form-grid">
-      <label for="blog-editor-title">Title</label>
-      <input type="text" id="blog-editor-title" placeholder="Post title" />
+          <label for="blog-editor-date">Date</label>
+          <input type="date" id="blog-editor-date" />
 
-      <label for="blog-editor-date">Date</label>
-      <input type="date" id="blog-editor-date" />
+          <label for="blog-editor-slug">Slug</label>
+          <div class="blog-editor-slug-row">
+            <input type="text" id="blog-editor-slug" placeholder="my-post-title" />
+            <button type="button" data-editor-autoslug>Auto</button>
+          </div>
 
-      <label for="blog-editor-slug">Slug</label>
-      <div class="blog-editor-slug-row">
-        <input type="text" id="blog-editor-slug" placeholder="my-post-title" />
-        <button type="button" data-editor-autoslug>Auto</button>
+          <label for="blog-editor-excerpt">Excerpt (Optional)</label>
+          <textarea id="blog-editor-excerpt" rows="2" placeholder="Short summary"></textarea>
+        </div>
+
+        <label for="blog-editor-body">Markdown / LaTeX</label>
+        <textarea
+          id="blog-editor-body"
+          class="blog-editor-body-input"
+          rows="20"
+          placeholder="Write markdown and equations like $\\alpha$ or $$\\int_0^1 x^2 dx$$..."
+        ></textarea>
+
+        <div class="blog-editor-output">
+          <span>Output file:</span>
+          <code data-editor-filename>YYYY-MM-DD-my-post.md</code>
+        </div>
+
+        <div class="blog-editor-actions">
+          <button type="button" data-editor-copy>Copy Markdown</button>
+          <button type="button" data-editor-download>Download File</button>
+          <button type="button" data-editor-open-github>Open GitHub Prefill</button>
+        </div>
+        <p class="blog-editor-status" data-editor-status aria-live="polite"></p>
       </div>
 
-      <label for="blog-editor-excerpt">Excerpt (Optional)</label>
-      <textarea id="blog-editor-excerpt" rows="2" placeholder="Short summary"></textarea>
+      <div class="blog-editor-render">
+        <h4>Rendered Preview</h4>
+        <div class="blog-editor-preview" data-editor-preview></div>
+      </div>
     </div>
-
-    <label for="blog-editor-body">Markdown</label>
-    <textarea id="blog-editor-body" rows="14" placeholder="Write your post in Markdown..."></textarea>
-
-    <div class="blog-editor-output">
-      <span>Output file:</span>
-      <code data-editor-filename>YYYY-MM-DD-my-post.md</code>
-    </div>
-
-    <div class="blog-editor-actions">
-      <button type="button" data-editor-copy>Copy Markdown</button>
-      <button type="button" data-editor-download>Download File</button>
-      <button type="button" data-editor-open-github>Open GitHub Prefill</button>
-    </div>
-    <p class="blog-editor-status" data-editor-status aria-live="polite"></p>
-
-    <h4>Preview</h4>
-    <div class="blog-editor-preview" data-editor-preview></div>
   </div>
 </section>
 
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script defer id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 <script>
   (function() {
     const shell = document.getElementById('blog-owner-editor');
@@ -146,21 +171,67 @@ permalink: /blog/
       return slugInput.value.trim() || candidate;
     }
 
-    function buildPostContent() {
+    function escapeHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function formatDateLabel(dateString) {
+      if (!dateString) return '';
+      const parsed = new Date(dateString + 'T00:00:00');
+      if (Number.isNaN(parsed.getTime())) return dateString;
+      return parsed.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+
+    function renderMarkdownToHtml(markdown) {
+      const raw = String(markdown || '');
+      if (window.marked && typeof window.marked.parse === 'function') {
+        const parsed = window.marked.parse(raw, {
+          gfm: true,
+          breaks: true,
+          mangle: false,
+          headerIds: true
+        });
+        if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
+          return window.DOMPurify.sanitize(parsed, { USE_PROFILES: { html: true } });
+        }
+        return parsed;
+      }
+      return '<pre>' + escapeHtml(raw) + '</pre>';
+    }
+
+    function renderMathInPreview() {
+      if (!window.MathJax || typeof window.MathJax.typesetPromise !== 'function') return;
+      if (typeof window.MathJax.typesetClear === 'function') {
+        window.MathJax.typesetClear([previewEl]);
+      }
+      window.MathJax.typesetPromise([previewEl]).catch(function() {
+        // no-op
+      });
+    }
+
+    function buildPostContent(allowPartial) {
       const title = titleInput.value.trim();
       const date = ensureDate();
       const slug = ensureSlug(false);
       const excerpt = excerptInput.value.trim();
       const body = bodyInput.value.trim();
 
-      if (!title) throw new Error('Title is required.');
-      if (!body) throw new Error('Markdown body is required.');
+      if (!allowPartial && !title) throw new Error('Title is required.');
+      if (!allowPartial && !body) throw new Error('Markdown body is required.');
 
+      const effectiveTitle = title || 'Untitled Draft';
       const filename = date + '-' + slug + '.md';
       const frontMatter = [
         '---',
         'layout: post',
-        'title: "' + yamlEscape(title) + '"',
+        'title: "' + yamlEscape(effectiveTitle) + '"',
         'date: ' + date
       ];
 
@@ -169,27 +240,56 @@ permalink: /blog/
 
       return {
         filename: filename,
+        title: effectiveTitle,
+        date: date,
+        excerpt: excerpt,
+        body: body,
         markdown: frontMatter.join('\n') + body + '\n'
       };
     }
 
-    function safePreviewMarkdown(rawMarkdown) {
-      const escaped = rawMarkdown
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      return '<pre>' + escaped + '</pre>';
+    let previewTimer = null;
+    function schedulePreview() {
+      if (previewTimer) window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(updatePreview, 120);
+    }
+
+    function refreshPreviewWhenRenderersReady() {
+      let attempts = 0;
+      const intervalId = window.setInterval(function() {
+        attempts += 1;
+        const markdownReady = !!(window.marked && typeof window.marked.parse === 'function');
+        const sanitizeReady = !!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function');
+        const mathReady = !!(window.MathJax && typeof window.MathJax.typesetPromise === 'function');
+        if ((markdownReady && sanitizeReady && mathReady) || attempts > 20) {
+          window.clearInterval(intervalId);
+          schedulePreview();
+        }
+      }, 250);
     }
 
     function updatePreview() {
       try {
-        const built = buildPostContent();
+        const built = buildPostContent(true);
+        const renderedBody = built.body
+          ? renderMarkdownToHtml(built.body)
+          : '<p class="blog-editor-preview-empty">Start writing markdown on the left.</p>';
+        const dateLabel = formatDateLabel(built.date);
+
         filenameEl.textContent = built.filename;
-        previewEl.innerHTML = safePreviewMarkdown(built.markdown);
+        previewEl.innerHTML =
+          '<article class="blog-editor-preview-article">' +
+            '<h1 class="blog-editor-preview-title">' + escapeHtml(built.title) + '</h1>' +
+            (dateLabel ? '<p class="blog-editor-preview-date">' + escapeHtml(dateLabel) + '</p>' : '') +
+            (built.excerpt ? '<p class="blog-editor-preview-excerpt">' + escapeHtml(built.excerpt) + '</p>' : '') +
+            '<div class="post-content blog-editor-preview-content">' + renderedBody + '</div>' +
+          '</article>';
+
+        renderMathInPreview();
         setStatus('', null);
       } catch (err) {
         filenameEl.textContent = 'YYYY-MM-DD-my-post.md';
-        previewEl.innerHTML = '<p class="blog-editor-preview-empty">Add a title and markdown body to preview.</p>';
+        previewEl.innerHTML = '<p class="blog-editor-preview-empty">Unable to render preview.</p>';
         if (err && err.message) setStatus(err.message, 'error');
       }
     }
@@ -240,6 +340,7 @@ permalink: /blog/
       if (!dateInput.value) dateInput.value = todayString();
       ensureSlug(false);
       updatePreview();
+      refreshPreviewWhenRenderersReady();
       titleInput.focus();
     }
 
@@ -295,17 +396,17 @@ permalink: /blog/
 
     autoslugBtn.addEventListener('click', function() {
       ensureSlug(true);
-      updatePreview();
+      schedulePreview();
     });
 
     titleInput.addEventListener('input', function() {
       ensureSlug(false);
-      updatePreview();
+      schedulePreview();
     });
-    dateInput.addEventListener('input', updatePreview);
-    slugInput.addEventListener('input', updatePreview);
-    excerptInput.addEventListener('input', updatePreview);
-    bodyInput.addEventListener('input', updatePreview);
+    dateInput.addEventListener('input', schedulePreview);
+    slugInput.addEventListener('input', schedulePreview);
+    excerptInput.addEventListener('input', schedulePreview);
+    bodyInput.addEventListener('input', schedulePreview);
 
     copyBtn.addEventListener('click', async function() {
       try {
