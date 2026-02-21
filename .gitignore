@@ -33,3 +33,5 @@ Thumbs.db
 *.tmp
 *.temp
 .sass-cache/
+.hugo_build.lock
+hugo_stats.json
