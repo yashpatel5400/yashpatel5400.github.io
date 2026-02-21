@@ -510,6 +510,176 @@
   font-size: 0.92rem;
 }
 
+.make-post-standalone {
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.make-post-standalone.blog-standalone .wrapper {
+  width: auto;
+  max-width: none;
+  grid-template-columns: 1fr;
+  grid-template-areas: "section";
+  margin: 0;
+  box-sizing: border-box;
+  padding: 0 0.75rem 0 2rem;
+}
+
+.make-post-standalone.blog-standalone section {
+  max-width: none;
+  margin: 0;
+}
+
+.make-post-page {
+  margin: 0 0 2.6rem;
+  width: 100%;
+}
+
+.make-post-lock {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 0.45rem;
+}
+
+.make-post-lock button {
+  border: 0;
+  background: transparent;
+  color: #8a93a0;
+  padding: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.make-post-lock button:hover {
+  color: #2a7ae2;
+}
+
+.make-post-editor {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.make-post-editor .blog-editor-workbench {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+}
+
+.make-post-editor .blog-editor-compose,
+.make-post-editor .blog-editor-render {
+  min-height: calc(100vh - 12.5rem);
+}
+
+.make-post-editor .blog-editor-compose {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 1.35rem 0 0;
+}
+
+.make-post-editor .blog-editor-render {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  border-left: 1px solid #e4e8ef;
+  padding: 0 0 0 1.35rem;
+}
+
+.make-post-editor .blog-editor-meta-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 0.7rem;
+}
+
+.make-post-editor .blog-editor-meta-field {
+  min-width: 0;
+}
+
+.make-post-editor .blog-editor-compose label {
+  margin-bottom: 0.1rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7b8794;
+}
+
+.make-post-editor #blog-editor-title,
+.make-post-editor #blog-editor-date {
+  border: 0;
+  border-bottom: 1px solid #e4e8ef;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.28rem 0 0.38rem;
+  box-shadow: none;
+}
+
+.make-post-editor #blog-editor-title {
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino, "URW Palladio L", Georgia, serif;
+  font-size: 2.05rem;
+  line-height: 1.08;
+}
+
+.make-post-editor #blog-editor-date {
+  width: 100%;
+  color: #5f6772;
+  font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+}
+
+.make-post-editor #blog-editor-title:focus,
+.make-post-editor #blog-editor-date:focus {
+  border-bottom-color: #2a7ae2;
+  box-shadow: none;
+}
+
+.make-post-editor .blog-editor-body-input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.45rem 0 0;
+  min-height: calc(100vh - 19rem);
+  box-shadow: none;
+}
+
+.make-post-editor .blog-editor-body-input:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.make-post-editor .blog-editor-output {
+  margin-top: 0.65rem;
+}
+
+.make-post-editor .blog-editor-actions {
+  margin: 0.7rem 0 0.75rem;
+}
+
+.make-post-editor .blog-editor-preview {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  min-height: calc(100vh - 16rem);
+  max-height: none;
+}
+
+.make-post-editor .blog-editor-actions [data-editor-lock-btn] {
+  border-color: #6b7280;
+  background-color: #6b7280;
+}
+
+.make-post-editor .blog-editor-actions [data-editor-lock-btn]:hover {
+  background-color: #4b5563;
+}
+
 .blog-editor-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -782,6 +952,33 @@
     padding: 1rem;
   }
 
+  .make-post-editor {
+    padding: 0;
+  }
+
+  .make-post-standalone.blog-standalone .wrapper {
+    padding: 0 0.5rem 0 1.1rem;
+  }
+
+  .make-post-editor .blog-editor-compose {
+    padding: 0;
+  }
+
+  .make-post-editor .blog-editor-render {
+    border-left: 0;
+    border-top: 1px solid #e4e8ef;
+    padding: 0.95rem 0 0;
+  }
+
+  .make-post-editor #blog-editor-title {
+    font-size: 1.65rem;
+  }
+
+  .make-post-editor .blog-editor-meta-row {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
   .blog-editor-lock-row,
   .blog-editor-slug-row,
   .blog-editor-actions {
@@ -791,6 +988,10 @@
 
   .blog-editor-workbench {
     grid-template-columns: 1fr;
+  }
+
+  .make-post-lock {
+    justify-content: flex-start;
   }
 
   .blog-editor-body-input {
