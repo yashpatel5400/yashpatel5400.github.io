@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="{{ site.lang | default: "en-US" }}">
   {% assign is_blog_standalone = false %}
-  {% if page.permalink == '/blog/' or page.permalink == '/make-post/' or page.layout == 'post' %}
+  {% if page.permalink == '/blog/' or page.permalink == '/edit/' or page.layout == 'post' %}
     {% assign is_blog_standalone = true %}
   {% endif %}
   {% assign body_classes = '' %}
   {% if is_blog_standalone %}
     {% assign body_classes = body_classes | append: 'blog-standalone' %}
   {% endif %}
-  {% if page.permalink == '/make-post/' %}
+  {% if page.permalink == '/edit/' %}
     {% assign body_classes = body_classes | append: ' make-post-standalone' %}
   {% endif %}
   <head>

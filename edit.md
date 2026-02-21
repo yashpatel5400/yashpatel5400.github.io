@@ -1,7 +1,7 @@
 ---
 layout: default
-title: Make Post
-permalink: /make-post/
+title: Edit
+permalink: /edit/
 sitemap: false
 ---
 
@@ -29,19 +29,32 @@ sitemap: false
     data-draft-id="{{ site.data.editor.draft_id | default: 'main' }}"
     hidden
   >
+    <button
+      type="button"
+      class="blog-editor-global-sidebar-toggle"
+      data-editor-sidebar-toggle
+      aria-label="Toggle sidebar"
+      aria-expanded="true"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+      <span class="sr-only">Toggle sidebar</span>
+    </button>
     <div class="blog-editor-workbench">
-      <div class="blog-editor-compose">
+      <aside class="blog-editor-sidebar">
         <div class="blog-editor-library">
           <div class="blog-editor-library-head">
             <h5>Workspace</h5>
-            <button type="button" data-editor-new-draft>New Draft</button>
+            <div class="blog-editor-library-head-actions">
+              <button type="button" data-editor-new-draft>New Draft</button>
+            </div>
           </div>
 
           <div class="blog-editor-library-columns">
             <div class="blog-editor-library-pane">
               <div class="blog-editor-library-pane-head">
                 <h6>Drafts</h6>
-                <button type="button" data-editor-refresh-drafts>Refresh</button>
               </div>
               <ul class="blog-editor-entity-list" data-editor-draft-list></ul>
             </div>
@@ -49,15 +62,14 @@ sitemap: false
             <div class="blog-editor-library-pane">
               <div class="blog-editor-library-pane-head">
                 <h6>Published</h6>
-                <button type="button" data-editor-refresh-posts>Refresh</button>
               </div>
               <ul class="blog-editor-entity-list" data-editor-post-list></ul>
             </div>
           </div>
         </div>
+      </aside>
 
-        <p class="blog-editor-context" data-editor-context></p>
-
+      <div class="blog-editor-compose">
         <div class="blog-editor-meta-row">
           <div class="blog-editor-meta-field blog-editor-meta-field--title">
             <label for="blog-editor-title">Title</label>
@@ -67,7 +79,13 @@ sitemap: false
             <label for="blog-editor-date">Date</label>
             <input type="date" id="blog-editor-date" />
           </div>
+          <div class="blog-editor-meta-actions">
+            <button type="button" data-editor-save>Save</button>
+            <button type="button" data-editor-publish>Publish</button>
+          </div>
         </div>
+
+        <p class="blog-editor-context" data-editor-context></p>
 
         <label for="blog-editor-body">Markdown / LaTeX</label>
         <textarea
@@ -76,21 +94,6 @@ sitemap: false
           rows="20"
           placeholder="Write markdown and equations like $\\alpha$ or $$\\int_0^1 x^2 dx$$..."
         ></textarea>
-
-        <div class="blog-editor-output">
-          <span>Output file:</span>
-          <code data-editor-filename>YYYY-MM-DD-my-post.md</code>
-        </div>
-
-        <div class="blog-editor-actions">
-          <button type="button" data-editor-connect-db>Reconnect</button>
-          <button type="button" data-editor-save>Save Draft</button>
-          <button type="button" data-editor-publish>Publish</button>
-          <button type="button" data-editor-copy>Copy Markdown</button>
-          <button type="button" data-editor-download>Download File</button>
-          <button type="button" data-editor-open-github>Open GitHub Prefill</button>
-          <button type="button" data-editor-lock-btn>Lock</button>
-        </div>
         <p class="blog-editor-status" data-editor-status aria-live="polite"></p>
       </div>
 
@@ -128,8 +131,6 @@ sitemap: false
     const expectedKeyHex = '{{ site.data.editor.guard }}'.trim().toLowerCase();
     const pbkdf2SaltHex = '{{ site.data.editor.grain }}'.trim().toLowerCase();
     const pbkdf2Iterations = Number('{{ site.data.editor.rounds }}') || 310000;
-    const repo = shell.dataset.editorRepo || '';
-    const branch = shell.dataset.editorBranch || 'master';
     const draftApiBase = (shell.dataset.draftApiBase || '').trim().replace(/\/+$/, '');
     const draftApiAuthMode = (shell.dataset.draftApiAuth || 'session').trim().toLowerCase();
     const defaultDraftId = (shell.dataset.draftId || 'main').trim();
@@ -137,11 +138,8 @@ sitemap: false
     const localUnlockEnabled = Boolean(expectedKeyHex && pbkdf2SaltHex && pbkdf2Iterations) && !sessionUnlockEnabled;
 
     const statusEl = shell.querySelector('[data-editor-status]');
-    const lockBtn = shell.querySelector('[data-editor-lock-btn]');
-    const connectDbBtn = shell.querySelector('[data-editor-connect-db]');
     const newDraftBtn = shell.querySelector('[data-editor-new-draft]');
-    const refreshDraftsBtn = shell.querySelector('[data-editor-refresh-drafts]');
-    const refreshPostsBtn = shell.querySelector('[data-editor-refresh-posts]');
+    const sidebarToggleBtn = shell.querySelector('[data-editor-sidebar-toggle]');
     const draftListEl = shell.querySelector('[data-editor-draft-list]');
     const postListEl = shell.querySelector('[data-editor-post-list]');
     const contextEl = shell.querySelector('[data-editor-context]');
@@ -150,16 +148,13 @@ sitemap: false
     const dateInput = shell.querySelector('#blog-editor-date');
     const bodyInput = shell.querySelector('#blog-editor-body');
     const previewEl = shell.querySelector('[data-editor-preview]');
-    const filenameEl = shell.querySelector('[data-editor-filename]');
     const saveBtn = shell.querySelector('[data-editor-save]');
     const publishBtn = shell.querySelector('[data-editor-publish]');
-    const copyBtn = shell.querySelector('[data-editor-copy]');
-    const downloadBtn = shell.querySelector('[data-editor-download]');
-    const openGithubBtn = shell.querySelector('[data-editor-open-github]');
 
     const draftSnapshotKey = 'make-post-draft-snapshot-v2';
     const draftApiTokenStorageKey = 'make-post-draft-api-token-v1';
     const draftApiTokenPersistentStorageKey = 'make-post-draft-api-token-persist-v1';
+    const sidebarCollapsedStorageKey = 'edit-sidebar-collapsed-v1';
 
     const state = {
       shellVisible: false,
@@ -170,6 +165,31 @@ sitemap: false
       drafts: [],
       posts: []
     };
+
+    function getSidebarCollapsedPreference() {
+      try {
+        return window.localStorage.getItem(sidebarCollapsedStorageKey) === '1';
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function applySidebarCollapsed(collapsed) {
+      const isCollapsed = Boolean(collapsed);
+      shell.classList.toggle('is-sidebar-collapsed', isCollapsed);
+      if (sidebarToggleBtn) {
+        sidebarToggleBtn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      }
+      try {
+        window.localStorage.setItem(sidebarCollapsedStorageKey, isCollapsed ? '1' : '0');
+      } catch (err) {
+        // no-op
+      }
+    }
+
+    function toggleSidebar() {
+      applySidebarCollapsed(!shell.classList.contains('is-sidebar-collapsed'));
+    }
 
     function setStatus(message, kind) {
       if (!statusEl) return;
@@ -300,12 +320,42 @@ sitemap: false
       return 'Draft DB request failed.';
     }
 
+    function delay(ms) {
+      return new Promise(function(resolve) {
+        window.setTimeout(resolve, ms);
+      });
+    }
+
+    async function fetchWithRetry(url, request, retryCount) {
+      const attempts = Math.max(1, Number(retryCount) || 1);
+      let lastError = null;
+
+      for (let i = 0; i < attempts; i += 1) {
+        try {
+          const response = await fetch(url, request);
+          if ((response.status >= 500 || response.status === 429) && i + 1 < attempts) {
+            await delay(350 * (i + 1));
+            continue;
+          }
+          return response;
+        } catch (err) {
+          lastError = err;
+          if (i + 1 < attempts) {
+            await delay(350 * (i + 1));
+            continue;
+          }
+        }
+      }
+
+      throw lastError || new Error('Request failed.');
+    }
+
     async function requestSessionToken(passphrase) {
-      const response = await fetch(draftApiBase + '/api/session', {
+      const response = await fetchWithRetry(draftApiBase + '/api/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passphrase: passphrase })
-      });
+      }, 3);
       if (!response.ok) {
         throw new Error(await parseErrorMessage(response));
       }
@@ -357,13 +407,13 @@ sitemap: false
       }
       request.headers = headers;
 
-      let response = await fetch(draftApiBase + path, request);
+      let response = await fetchWithRetry(draftApiBase + path, request, 2);
       if (response.status === 401 && promptForToken) {
         setStoredApiToken('');
         token = await ensureApiToken(true, passphraseHint);
         if (!token) return null;
         request.headers.Authorization = 'Bearer ' + token;
-        response = await fetch(draftApiBase + path, request);
+        response = await fetchWithRetry(draftApiBase + path, request, 2);
       }
       return response;
     }
@@ -461,7 +511,7 @@ sitemap: false
     function updateContextLabel() {
       if (!contextEl) return;
       if (state.sourcePostFilename) {
-        contextEl.textContent = 'Editing published post: ' + state.sourcePostFilename;
+        contextEl.textContent = 'Editing published post';
         return;
       }
       contextEl.textContent = 'Editing draft: ' + state.currentDraftId;
@@ -536,12 +586,12 @@ sitemap: false
           btn.classList.add('is-active');
         }
 
-        const title = (post.title || '').trim() || (post.filename || 'Untitled');
+        const title = (post.title || '').trim() || 'Untitled Post';
         const dateLabel = post.date || '';
 
         btn.innerHTML =
           '<span class="blog-editor-entity-title">' + escapeHtml(title) + '</span>' +
-          '<span class="blog-editor-entity-meta">' + escapeHtml(dateLabel + (post.filename ? ' · ' + post.filename : '')) + '</span>';
+          '<span class="blog-editor-entity-meta">' + escapeHtml(dateLabel) + '</span>';
 
         li.appendChild(btn);
         postListEl.appendChild(li);
@@ -808,7 +858,6 @@ sitemap: false
           : '<p class="blog-editor-preview-empty">Start writing markdown on the left.</p>';
         const dateLabel = formatDateLabel(built.date);
 
-        filenameEl.textContent = built.filename;
         previewEl.innerHTML =
           '<article class="blog-editor-preview-article">' +
             '<h1 class="blog-editor-preview-title">' + escapeHtml(built.title) + '</h1>' +
@@ -818,7 +867,6 @@ sitemap: false
 
         renderMathInPreview();
       } catch (err) {
-        filenameEl.textContent = 'YYYY-MM-DD-my-post.md';
         previewEl.innerHTML = '<p class="blog-editor-preview-empty">Unable to render preview.</p>';
         setStatus(err && err.message ? err.message : 'Unable to render preview.', 'error');
       }
@@ -1008,67 +1056,15 @@ sitemap: false
       });
     }
 
-    lockBtn.addEventListener('click', function() {
-      hideShell();
-    });
-
-    if (connectDbBtn) {
-      connectDbBtn.addEventListener('click', async function() {
-        if (!hasDraftApiConfigured()) {
-          setStatus('Draft DB URL is not configured in _data/editor.yml.', 'error');
-          return;
-        }
-
-        try {
-          const token = await ensureApiToken(true);
-          if (!token) {
-            setStatus(
-              isSessionAuthMode()
-                ? 'Passphrase is required to connect.'
-                : 'Draft DB token is required to connect.',
-              'error'
-            );
-            return;
-          }
-
-          await refreshLibrary(false);
-          const loaded = await loadDraftRemoteById(state.currentDraftId, false, false);
-          if (!loaded && state.drafts.length) {
-            await loadDraftRemoteById(state.drafts[0].draft_id, false, false);
-          }
-          updatePreview();
-          setStatus('Connected to Draft DB.', 'success');
-        } catch (err) {
-          setStatus(err && err.message ? err.message : 'Unable to connect to Draft DB.', 'error');
-        }
-      });
-    }
-
     if (newDraftBtn) {
       newDraftBtn.addEventListener('click', function() {
         startNewDraft(true);
       });
     }
 
-    if (refreshDraftsBtn) {
-      refreshDraftsBtn.addEventListener('click', async function() {
-        try {
-          const ok = await fetchDraftList(true);
-          if (ok) setStatus('Draft list refreshed.', 'success');
-        } catch (err) {
-          setStatus(err && err.message ? err.message : 'Unable to refresh drafts.', 'error');
-        }
-      });
-    }
-
-    if (refreshPostsBtn) {
-      refreshPostsBtn.addEventListener('click', async function() {
-        try {
-          const ok = await fetchPostList(true);
-          if (ok) setStatus('Published posts refreshed.', 'success');
-        } catch (err) {
-          setStatus(err && err.message ? err.message : 'Unable to refresh published posts.', 'error');
-        }
+    if (sidebarToggleBtn) {
+      sidebarToggleBtn.addEventListener('click', function() {
+        toggleSidebar();
       });
     }
 
@@ -1162,48 +1158,6 @@ sitemap: false
     dateInput.addEventListener('input', onEditorInput);
     bodyInput.addEventListener('input', onEditorInput);
 
-    copyBtn.addEventListener('click', async function() {
-      try {
-        const built = buildPostContent();
-        await navigator.clipboard.writeText(built.markdown);
-        setStatus('Markdown copied to clipboard.', 'success');
-      } catch (err) {
-        setStatus(err && err.message ? err.message : 'Unable to copy markdown.', 'error');
-      }
-    });
-
-    downloadBtn.addEventListener('click', function() {
-      try {
-        const built = buildPostContent();
-        const blob = new Blob([built.markdown], { type: 'text/markdown;charset=utf-8' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = built.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-        setStatus('Draft downloaded as ' + built.filename + '.', 'success');
-      } catch (err) {
-        setStatus(err && err.message ? err.message : 'Unable to download markdown.', 'error');
-      }
-    });
-
-    openGithubBtn.addEventListener('click', function() {
-      try {
-        const built = buildPostContent();
-        if (!repo) throw new Error('Missing GitHub repository config.');
-        const params = new URLSearchParams({
-          filename: built.filename,
-          value: built.markdown
-        });
-        const url = 'https://github.com/' + repo + '/new/' + branch + '/_posts?' + params.toString();
-        window.open(url, '_blank', 'noopener');
-      } catch (err) {
-        setStatus(err && err.message ? err.message : 'Unable to open GitHub prefill.', 'error');
-      }
-    });
-
     document.addEventListener('keydown', function(event) {
       if (isComposeShortcut(event)) {
         event.preventDefault();
@@ -1217,6 +1171,7 @@ sitemap: false
     });
 
     hideShell();
+    applySidebarCollapsed(getSidebarCollapsedPreference());
     maybeRevealFromHash();
     maybeAutoUnlockFromStoredCredentials().catch(function() {
       // no-op

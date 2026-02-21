@@ -2,7 +2,7 @@
 
 SQLite-backed authenticated API for editor drafts.
 
-`/make-post/` can use this API in two modes:
+`/edit/` can use this API in two modes:
 
 1. `token` mode: static bearer token (`DRAFT_DB_TOKEN`).
 2. `session` mode (recommended): passphrase login at `POST /api/session`, which returns a short-lived bearer token.
