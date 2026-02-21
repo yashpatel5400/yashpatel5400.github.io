@@ -122,6 +122,7 @@ sitemap: false
     const openGithubBtn = shell.querySelector('[data-editor-open-github]');
     const draftStorageKey = 'make-post-draft-v1';
     const draftApiTokenStorageKey = 'make-post-draft-api-token-v1';
+    const draftApiTokenPersistentStorageKey = 'make-post-draft-api-token-persist-v1';
 
     let shellVisible = false;
     let failedAttempts = 0;
@@ -144,7 +145,14 @@ sitemap: false
 
     function getStoredApiToken() {
       try {
-        return window.sessionStorage.getItem(draftApiTokenStorageKey) || '';
+        const sessionToken = window.sessionStorage.getItem(draftApiTokenStorageKey);
+        if (sessionToken) return sessionToken;
+        const persistedToken = window.localStorage.getItem(draftApiTokenPersistentStorageKey) || '';
+        if (persistedToken) {
+          window.sessionStorage.setItem(draftApiTokenStorageKey, persistedToken);
+          return persistedToken;
+        }
+        return '';
       } catch (err) {
         return '';
       }
@@ -154,8 +162,10 @@ sitemap: false
       try {
         if (token) {
           window.sessionStorage.setItem(draftApiTokenStorageKey, token);
+          window.localStorage.setItem(draftApiTokenPersistentStorageKey, token);
         } else {
           window.sessionStorage.removeItem(draftApiTokenStorageKey);
+          window.localStorage.removeItem(draftApiTokenPersistentStorageKey);
         }
       } catch (err) {
         // no-op
@@ -546,7 +556,6 @@ sitemap: false
 
     function hideShell() {
       saveDraftLocal(false);
-      setStoredApiToken('');
       shell.hidden = true;
       if (lockState) lockState.hidden = false;
       shellVisible = false;
@@ -566,6 +575,24 @@ sitemap: false
       if (now < blockedUntil) {
         window.alert('Editor temporarily blocked. Try again in a minute.');
         return;
+      }
+
+      if (hasSessionUnlock) {
+        const existingToken = getStoredApiToken();
+        if (existingToken) {
+          try {
+            await loadDraftRemote(false, false);
+            failedAttempts = 0;
+            await showShell();
+            setStatus('Editor unlocked.', 'success');
+            return;
+          } catch (err) {
+            const lower = String(err && err.message ? err.message : '').toLowerCase();
+            if (lower.indexOf('unauthorized') !== -1) {
+              setStoredApiToken('');
+            }
+          }
+        }
       }
 
       const passphrase = window.prompt('Passphrase');
