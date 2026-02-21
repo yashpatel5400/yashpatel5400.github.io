@@ -25,6 +25,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <span class="timeline-duration"><strong>Jan 2026 – Present</strong></span>
 </div>
 <p class="timeline-role">Research Engineer</p>
+<p class="timeline-description">Working on post-training and search algorithms for frontier math reasoning models.</p>
 </div>
 </div>
 <div class="timeline-item" id="anthropic">
