@@ -48,6 +48,7 @@ sitemap: false
             <h5>Workspace</h5>
             <div class="blog-editor-library-head-actions">
               <button type="button" data-editor-new-draft>New Draft</button>
+              <button type="button" data-editor-delete-draft>Delete Draft</button>
             </div>
           </div>
 
@@ -57,6 +58,13 @@ sitemap: false
                 <h6>Drafts</h6>
               </div>
               <ul class="blog-editor-entity-list" data-editor-draft-list></ul>
+            </div>
+
+            <div class="blog-editor-library-pane">
+              <div class="blog-editor-library-pane-head">
+                <h6>Autosaves</h6>
+              </div>
+              <ul class="blog-editor-entity-list" data-editor-autosave-list></ul>
             </div>
 
             <div class="blog-editor-library-pane">
@@ -139,10 +147,13 @@ sitemap: false
 
     const statusEl = shell.querySelector('[data-editor-status]');
     const newDraftBtn = shell.querySelector('[data-editor-new-draft]');
+    const deleteDraftBtn = shell.querySelector('[data-editor-delete-draft]');
     const sidebarToggleBtn = shell.querySelector('[data-editor-sidebar-toggle]');
     const draftListEl = shell.querySelector('[data-editor-draft-list]');
+    const autosaveListEl = shell.querySelector('[data-editor-autosave-list]');
     const postListEl = shell.querySelector('[data-editor-post-list]');
     const contextEl = shell.querySelector('[data-editor-context]');
+    const composePane = shell.querySelector('.blog-editor-compose');
 
     const titleInput = shell.querySelector('#blog-editor-title');
     const dateInput = shell.querySelector('#blog-editor-date');
@@ -150,11 +161,14 @@ sitemap: false
     const previewEl = shell.querySelector('[data-editor-preview]');
     const saveBtn = shell.querySelector('[data-editor-save]');
     const publishBtn = shell.querySelector('[data-editor-publish]');
+    const saveButtonDefaultLabel = saveBtn ? (saveBtn.textContent || 'Save') : 'Save';
 
     const draftSnapshotKey = 'make-post-draft-snapshot-v2';
     const draftApiTokenStorageKey = 'make-post-draft-api-token-v1';
     const draftApiTokenPersistentStorageKey = 'make-post-draft-api-token-persist-v1';
     const sidebarCollapsedStorageKey = 'edit-sidebar-collapsed-v1';
+    const autosaveIntervalMs = 12000;
+    const autosaveListLimit = 100;
 
     const state = {
       shellVisible: false,
@@ -163,8 +177,13 @@ sitemap: false
       currentDraftId: defaultDraftId || 'main',
       sourcePostFilename: '',
       drafts: [],
-      posts: []
+      autosaves: [],
+      posts: [],
+      lastAutosaveFingerprint: '',
+      autosaveInFlight: false
     };
+    let saveButtonFeedbackTimer = null;
+    let saveActionInFlight = false;
 
     function getSidebarCollapsedPreference() {
       try {
@@ -191,11 +210,77 @@ sitemap: false
       applySidebarCollapsed(!shell.classList.contains('is-sidebar-collapsed'));
     }
 
+    function isEditingPublishedPost() {
+      return Boolean(state.sourcePostFilename);
+    }
+
+    function updatePublishActionLabel() {
+      if (!publishBtn) return;
+      publishBtn.textContent = isEditingPublishedPost() ? 'Update' : 'Publish';
+    }
+
+    function autosaveFingerprint() {
+      return [
+        state.currentDraftId || '',
+        state.sourcePostFilename || '',
+        titleInput.value || '',
+        dateInput.value || '',
+        bodyInput.value || ''
+      ].join('\u0001');
+    }
+
+    function markAutosaveBaseline() {
+      state.lastAutosaveFingerprint = autosaveFingerprint();
+    }
+
     function setStatus(message, kind) {
       if (!statusEl) return;
       statusEl.textContent = message;
       statusEl.classList.remove('is-error', 'is-success');
       if (kind) statusEl.classList.add(kind === 'error' ? 'is-error' : 'is-success');
+    }
+
+    function clearSaveButtonFeedbackTimer() {
+      if (saveButtonFeedbackTimer) {
+        window.clearTimeout(saveButtonFeedbackTimer);
+        saveButtonFeedbackTimer = null;
+      }
+    }
+
+    function setSaveButtonState(stateName) {
+      if (!saveBtn) return;
+      clearSaveButtonFeedbackTimer();
+
+      if (stateName === 'saving') {
+        saveBtn.textContent = 'Saving...';
+        saveBtn.disabled = true;
+        return;
+      }
+
+      if (stateName === 'saved') {
+        saveBtn.textContent = 'Saved!';
+        saveBtn.disabled = false;
+        saveButtonFeedbackTimer = window.setTimeout(function() {
+          saveBtn.textContent = saveButtonDefaultLabel;
+          saveBtn.disabled = false;
+          saveButtonFeedbackTimer = null;
+        }, 1400);
+        return;
+      }
+
+      if (stateName === 'error') {
+        saveBtn.textContent = 'Save Failed';
+        saveBtn.disabled = false;
+        saveButtonFeedbackTimer = window.setTimeout(function() {
+          saveBtn.textContent = saveButtonDefaultLabel;
+          saveBtn.disabled = false;
+          saveButtonFeedbackTimer = null;
+        }, 1700);
+        return;
+      }
+
+      saveBtn.textContent = saveButtonDefaultLabel;
+      saveBtn.disabled = false;
     }
 
     function hasDraftApiConfigured() {
@@ -506,15 +591,26 @@ sitemap: false
       if (typeof record.source_post_filename === 'string') {
         state.sourcePostFilename = record.source_post_filename.trim();
       }
+
+      if (!state.sourcePostFilename && typeof record.filename === 'string') {
+        const candidateFilename = record.filename.trim();
+        const isPublished = state.posts.some(function(post) {
+          return post && post.filename === candidateFilename;
+        });
+        if (candidateFilename && isPublished) {
+          state.sourcePostFilename = candidateFilename;
+        }
+      }
     }
 
     function updateContextLabel() {
       if (!contextEl) return;
       if (state.sourcePostFilename) {
         contextEl.textContent = 'Editing published post';
-        return;
+      } else {
+        contextEl.textContent = 'Editing draft: ' + state.currentDraftId;
       }
-      contextEl.textContent = 'Editing draft: ' + state.currentDraftId;
+      updatePublishActionLabel();
     }
 
     function formatShortTimestamp(value) {
@@ -562,6 +658,45 @@ sitemap: false
 
         li.appendChild(btn);
         draftListEl.appendChild(li);
+      });
+    }
+
+    function renderAutosaveList() {
+      if (!autosaveListEl) return;
+      autosaveListEl.innerHTML = '';
+      if (!state.currentDraftId) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'blog-editor-entity-empty';
+        emptyItem.textContent = 'No draft selected.';
+        autosaveListEl.appendChild(emptyItem);
+        return;
+      }
+      if (!state.autosaves.length) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'blog-editor-entity-empty';
+        emptyItem.textContent = 'No autosaves yet.';
+        autosaveListEl.appendChild(emptyItem);
+        return;
+      }
+
+      state.autosaves.forEach(function(autosave) {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'blog-editor-entity-btn';
+        btn.setAttribute('data-autosave-id', String(autosave.autosave_id || ''));
+
+        const title = (autosave.title || '').trim() || 'Untitled Draft';
+        const dateLabel = autosave.draft_date || '';
+        const tsLabel = formatShortTimestamp(autosave.saved_at);
+        const metaParts = [dateLabel, tsLabel].filter(Boolean);
+
+        btn.innerHTML =
+          '<span class="blog-editor-entity-title">' + escapeHtml(title) + '</span>' +
+          '<span class="blog-editor-entity-meta">' + escapeHtml(metaParts.join(' · ')) + '</span>';
+
+        li.appendChild(btn);
+        autosaveListEl.appendChild(li);
       });
     }
 
@@ -622,6 +757,71 @@ sitemap: false
       return true;
     }
 
+    async function fetchAutosaveList(promptForToken) {
+      if (!state.currentDraftId || !hasDraftApiConfigured()) {
+        state.autosaves = [];
+        renderAutosaveList();
+        return false;
+      }
+      const response = await apiRequest(
+        '/api/drafts/' + encodeURIComponent(state.currentDraftId) + '/autosaves?limit=' + autosaveListLimit,
+        { method: 'GET' },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      const payload = await response.json();
+      state.autosaves = Array.isArray(payload && payload.autosaves) ? payload.autosaves : [];
+      renderAutosaveList();
+      return true;
+    }
+
+    async function loadAutosaveById(autosaveId, showMessage, promptForToken) {
+      if (!autosaveId || !state.currentDraftId || !hasDraftApiConfigured()) return false;
+      const response = await apiRequest(
+        '/api/drafts/' + encodeURIComponent(state.currentDraftId) + '/autosaves/' + encodeURIComponent(String(autosaveId)),
+        { method: 'GET' },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (response.status === 404) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      const payload = await response.json();
+      const autosave = payload && payload.autosave ? payload.autosave : null;
+      if (!autosave || typeof autosave !== 'object') return false;
+
+      applyEditorRecord(autosave);
+      updatePreview();
+      updateContextLabel();
+      setDraftSnapshotLocal(false);
+      markAutosaveBaseline();
+      if (showMessage) setStatus('Loaded autosave snapshot.', 'success');
+      return true;
+    }
+
+    async function deleteDraftRemote(draftId, promptForToken) {
+      if (!draftId || !hasDraftApiConfigured()) return false;
+      const response = await apiRequest(
+        '/api/drafts/' + encodeURIComponent(draftId),
+        { method: 'DELETE' },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (response.status === 404) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      state.drafts = state.drafts.filter(function(item) {
+        return item && item.draft_id !== draftId;
+      });
+      renderDraftList();
+      return true;
+    }
+
     async function refreshLibrary(promptForToken) {
       let draftsError = null;
       let postsError = null;
@@ -671,6 +871,11 @@ sitemap: false
       setDraftSnapshotLocal(false);
       renderDraftList();
       renderPostList();
+      await fetchAutosaveList(false).catch(function() {
+        state.autosaves = [];
+        renderAutosaveList();
+      });
+      markAutosaveBaseline();
       if (showMessage) setStatus('Draft loaded from database.', 'success');
       return true;
     }
@@ -708,6 +913,11 @@ sitemap: false
       setDraftSnapshotLocal(false);
       renderDraftList();
       renderPostList();
+      await fetchAutosaveList(false).catch(function() {
+        state.autosaves = [];
+        renderAutosaveList();
+      });
+      markAutosaveBaseline();
       if (showMessage) setStatus('Loaded published post for editing.', 'success');
       return true;
     }
@@ -743,10 +953,42 @@ sitemap: false
       await fetchDraftList(false).catch(function() {
         // no-op
       });
+      await fetchAutosaveList(false).catch(function() {
+        // no-op
+      });
       updateContextLabel();
       renderDraftList();
       renderPostList();
+      markAutosaveBaseline();
       if (showMessage) setStatus('Draft saved to database.', 'success');
+      return true;
+    }
+
+    async function createAutosaveRemote(promptForToken) {
+      if (!hasDraftApiConfigured() || !state.currentDraftId) return false;
+      const built = buildPostContent(true);
+      const payload = {
+        title: titleInput.value,
+        date: ensureDate(),
+        body: bodyInput.value,
+        filename: built.filename,
+        markdown: built.markdown,
+        source_post_filename: state.sourcePostFilename
+      };
+
+      const response = await apiRequest(
+        '/api/drafts/' + encodeURIComponent(state.currentDraftId) + '/autosaves',
+        { method: 'POST', body: JSON.stringify(payload) },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      await fetchAutosaveList(false).catch(function() {
+        // no-op
+      });
+      markAutosaveBaseline();
       return true;
     }
 
@@ -756,6 +998,7 @@ sitemap: false
       }
 
       const built = buildPostContent(false);
+      const isUpdate = Boolean(state.sourcePostFilename);
       const payload = {
         title: built.title,
         date: built.date,
@@ -791,13 +1034,18 @@ sitemap: false
       setDraftSnapshotLocal(false);
       updatePreview();
       updateContextLabel();
+      markAutosaveBaseline();
 
       await refreshLibrary(false).catch(function() {
         // no-op
       });
+      await fetchAutosaveList(false).catch(function() {
+        // no-op
+      });
 
       const blogLink = post.html_url || ('{{ "/blog/" | relative_url }}');
-      setStatus('Published. It will appear on /blog/ after GitHub Pages rebuilds. ' + blogLink, 'success');
+      const verb = isUpdate ? 'Updated' : 'Published';
+      setStatus(verb + '. It will appear on /blog/ after GitHub Pages rebuilds. ' + blogLink, 'success');
       return true;
     }
 
@@ -812,13 +1060,17 @@ sitemap: false
       updateContextLabel();
       renderDraftList();
       renderPostList();
+      state.autosaves = [];
+      renderAutosaveList();
       setDraftSnapshotLocal(false);
+      markAutosaveBaseline();
       if (showMessage) setStatus('Started a new draft.', 'success');
       titleInput.focus();
     }
 
     let previewTimer = null;
     let autosaveTimer = null;
+    let autosaveRemoteTimer = null;
     function schedulePreview() {
       if (previewTimer) window.clearTimeout(previewTimer);
       previewTimer = window.setTimeout(updatePreview, 120);
@@ -831,9 +1083,32 @@ sitemap: false
       }, 400);
     }
 
+    async function runRemoteAutosaveIfChanged() {
+      if (!state.shellVisible || !hasDraftApiConfigured() || state.autosaveInFlight) return;
+      const currentFingerprint = autosaveFingerprint();
+      if (currentFingerprint === state.lastAutosaveFingerprint) return;
+
+      state.autosaveInFlight = true;
+      try {
+        await createAutosaveRemote(false);
+      } catch (err) {
+        // no-op
+      } finally {
+        state.autosaveInFlight = false;
+      }
+    }
+
+    function scheduleRemoteAutosave() {
+      if (autosaveRemoteTimer) window.clearTimeout(autosaveRemoteTimer);
+      autosaveRemoteTimer = window.setTimeout(function() {
+        runRemoteAutosaveIfChanged();
+      }, autosaveIntervalMs);
+    }
+
     function onEditorInput() {
       schedulePreview();
       scheduleAutosave();
+      scheduleRemoteAutosave();
     }
 
     function refreshPreviewWhenRenderersReady() {
@@ -929,16 +1204,20 @@ sitemap: false
           if (!loadedCurrent && state.drafts.length) {
             await loadDraftRemoteById(state.drafts[0].draft_id, false, false);
           }
+          await fetchAutosaveList(false);
         } catch (err) {
-          // no-op
+          state.autosaves = [];
+          renderAutosaveList();
         }
       } else {
         renderDraftList();
         renderPostList();
+        renderAutosaveList();
       }
 
       updateContextLabel();
       updatePreview();
+      markAutosaveBaseline();
       refreshPreviewWhenRenderersReady();
       titleInput.focus();
     }
@@ -948,6 +1227,11 @@ sitemap: false
       shell.hidden = true;
       if (lockState) lockState.hidden = false;
       state.shellVisible = false;
+      setSaveButtonState('idle');
+      if (autosaveRemoteTimer) {
+        window.clearTimeout(autosaveRemoteTimer);
+        autosaveRemoteTimer = null;
+      }
       setStatus('', null);
     }
 
@@ -1050,6 +1334,66 @@ sitemap: false
       return event.altKey || event.metaKey;
     }
 
+    function isSaveShortcut(event) {
+      const key = (event.key || '').toLowerCase();
+      if (key !== 's') return false;
+      if (event.altKey) return false;
+      return event.metaKey || event.ctrlKey;
+    }
+
+    function isFocusInComposePane() {
+      if (!composePane) return false;
+      const active = document.activeElement;
+      return Boolean(active && composePane.contains(active));
+    }
+
+    async function handleSaveAction() {
+      if (saveActionInFlight) return false;
+      saveActionInFlight = true;
+      setSaveButtonState('saving');
+
+      let didSave = false;
+      const localSaved = setDraftSnapshotLocal(false);
+      if (!hasDraftApiConfigured()) {
+        if (localSaved) {
+          setStatus('Saved locally. Configure Draft DB URL for backend saves.', 'success');
+          didSave = true;
+        } else {
+          setStatus('Unable to save draft locally.', 'error');
+        }
+        setSaveButtonState(didSave ? 'saved' : 'error');
+        saveActionInFlight = false;
+        return didSave;
+      }
+
+      try {
+        const remoteSaved = await saveDraftRemote(false, true);
+        if (remoteSaved) {
+          setStatus('Draft saved to database.', 'success');
+          didSave = true;
+          return true;
+        }
+        if (localSaved) {
+          setStatus('Saved locally. Authentication is required for backend save.', 'error');
+          didSave = true;
+        } else {
+          setStatus('Unable to save draft.', 'error');
+        }
+      } catch (err) {
+        if (localSaved) {
+          setStatus('Saved locally. Database save failed: ' + (err.message || 'unknown error') + '.', 'error');
+          didSave = true;
+        } else {
+          setStatus(err && err.message ? err.message : 'Unable to save draft.', 'error');
+        }
+      } finally {
+        setSaveButtonState(didSave ? 'saved' : 'error');
+        saveActionInFlight = false;
+      }
+
+      return didSave;
+    }
+
     if (unlockBtn) {
       unlockBtn.addEventListener('click', function() {
         requestUnlockAndShow({ allowPrompt: true, silent: false });
@@ -1059,6 +1403,35 @@ sitemap: false
     if (newDraftBtn) {
       newDraftBtn.addEventListener('click', function() {
         startNewDraft(true);
+      });
+    }
+
+    if (deleteDraftBtn) {
+      deleteDraftBtn.addEventListener('click', async function() {
+        const draftId = (state.currentDraftId || '').trim();
+        if (!draftId) {
+          setStatus('No draft selected to delete.', 'error');
+          return;
+        }
+        const confirmed = window.confirm('Delete this draft and all its autosaves?');
+        if (!confirmed) return;
+
+        try {
+          const deleted = await deleteDraftRemote(draftId, true);
+          if (!deleted) {
+            setStatus('Draft not found.', 'error');
+            return;
+          }
+          startNewDraft(false);
+          if (hasDraftApiConfigured()) {
+            await refreshLibrary(false).catch(function() {
+              // no-op
+            });
+          }
+          setStatus('Draft deleted.', 'success');
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to delete draft.', 'error');
+        }
       });
     }
 
@@ -1085,6 +1458,23 @@ sitemap: false
       });
     }
 
+    if (autosaveListEl) {
+      autosaveListEl.addEventListener('click', async function(event) {
+        const target = event.target && event.target.closest('[data-autosave-id]');
+        if (!target) return;
+        const autosaveId = (target.getAttribute('data-autosave-id') || '').trim();
+        if (!autosaveId) return;
+        try {
+          const loaded = await loadAutosaveById(autosaveId, true, true);
+          if (!loaded) {
+            setStatus('Autosave not found.', 'error');
+          }
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to load autosave.', 'error');
+        }
+      });
+    }
+
     if (postListEl) {
       postListEl.addEventListener('click', async function(event) {
         const target = event.target && event.target.closest('[data-post-filename]');
@@ -1104,34 +1494,7 @@ sitemap: false
 
     if (saveBtn) {
       saveBtn.addEventListener('click', async function() {
-        const localSaved = setDraftSnapshotLocal(false);
-        if (!hasDraftApiConfigured()) {
-          if (localSaved) {
-            setStatus('Saved locally. Configure Draft DB URL for backend saves.', 'success');
-          } else {
-            setStatus('Unable to save draft locally.', 'error');
-          }
-          return;
-        }
-
-        try {
-          const remoteSaved = await saveDraftRemote(false, true);
-          if (remoteSaved) {
-            setStatus('Draft saved to database.', 'success');
-            return;
-          }
-          if (localSaved) {
-            setStatus('Saved locally. Authentication is required for backend save.', 'error');
-          } else {
-            setStatus('Unable to save draft.', 'error');
-          }
-        } catch (err) {
-          if (localSaved) {
-            setStatus('Saved locally. Database save failed: ' + (err.message || 'unknown error') + '.', 'error');
-          } else {
-            setStatus(err && err.message ? err.message : 'Unable to save draft.', 'error');
-          }
-        }
+        await handleSaveAction();
       });
     }
 
@@ -1159,6 +1522,11 @@ sitemap: false
     bodyInput.addEventListener('input', onEditorInput);
 
     document.addEventListener('keydown', function(event) {
+      if (state.shellVisible && isSaveShortcut(event) && isFocusInComposePane()) {
+        event.preventDefault();
+        handleSaveAction();
+        return;
+      }
       if (isComposeShortcut(event)) {
         event.preventDefault();
         requestUnlockAndShow({ allowPrompt: true, silent: false });

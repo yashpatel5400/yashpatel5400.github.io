@@ -684,6 +684,16 @@
   gap: 0.35rem;
 }
 
+.make-post-editor .blog-editor-library-head-actions [data-editor-delete-draft] {
+  border-color: #d1d5db;
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.make-post-editor .blog-editor-library-head-actions [data-editor-delete-draft]:hover {
+  background-color: #e5e7eb;
+}
+
 .make-post-editor .blog-editor-library-head h5 {
   margin: 0;
   font-size: 0.8rem;

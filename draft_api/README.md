@@ -78,6 +78,10 @@ Requirements:
 - `GET /api/drafts` (Bearer token)
 - `GET /api/drafts/<draft_id>` (Bearer token)
 - `PUT /api/drafts/<draft_id>` (Bearer token)
+- `DELETE /api/drafts/<draft_id>` (Bearer token)
+- `GET /api/drafts/<draft_id>/autosaves` (Bearer token)
+- `GET /api/drafts/<draft_id>/autosaves/<autosave_id>` (Bearer token)
+- `POST /api/drafts/<draft_id>/autosaves` (Bearer token)
 - `GET /api/posts` (Bearer token)
 - `GET /api/posts/<filename>.md` (Bearer token)
 - `POST /api/publish` (Bearer token)
@@ -98,3 +102,12 @@ Requirements:
 - `body` (required)
 - `filename` (optional; omit for auto `YYYY-MM-DD-slug.md`)
 - `source_draft_id` (optional; links publish back to draft record)
+
+`POST /api/drafts/<draft_id>/autosaves` payload fields:
+
+- `title`
+- `date`
+- `body`
+- `filename`
+- `markdown`
+- `source_post_filename` (optional)

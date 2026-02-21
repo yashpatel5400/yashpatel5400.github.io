@@ -24,6 +24,7 @@ from typing import Any
 MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.md$")
+DEFAULT_AUTOSAVE_HISTORY_LIMIT = 250
 
 
 def now_utc_iso() -> str:
@@ -142,6 +143,27 @@ class DraftStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS draft_autosaves (
+                  autosave_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  draft_id TEXT NOT NULL,
+                  title TEXT NOT NULL DEFAULT '',
+                  draft_date TEXT NOT NULL DEFAULT '',
+                  body TEXT NOT NULL DEFAULT '',
+                  filename TEXT NOT NULL DEFAULT '',
+                  markdown TEXT NOT NULL DEFAULT '',
+                  source_post_filename TEXT NOT NULL DEFAULT '',
+                  saved_at TEXT NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_draft_autosaves_draft_saved
+                ON draft_autosaves (draft_id, autosave_id DESC)
+                """
+            )
 
             columns = {
                 row["name"]
@@ -153,6 +175,62 @@ class DraftStore:
                 )
 
             self._conn.commit()
+
+    @staticmethod
+    def _normalize_draft_payload(payload: dict[str, Any]) -> dict[str, str]:
+        title = str(payload.get("title", "")).strip()
+        draft_date = str(payload.get("date", "")).strip() or today_utc_date()
+        body = str(payload.get("body", ""))
+        filename = str(payload.get("filename", "")).strip()
+        markdown = str(payload.get("markdown", ""))
+        source_post_filename = str(payload.get("source_post_filename", "")).strip()
+
+        if not filename and title:
+            filename = f"{draft_date}-{slugify(title)}.md"
+        if not markdown and title:
+            markdown = build_markdown(title, draft_date, body)
+
+        return {
+            "title": title,
+            "draft_date": draft_date,
+            "body": body,
+            "filename": filename,
+            "markdown": markdown,
+            "source_post_filename": source_post_filename,
+        }
+
+    def _upsert_draft_locked(
+        self,
+        draft_id: str,
+        fields: dict[str, str],
+        updated_at: str,
+    ) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO drafts (
+              draft_id, title, draft_date, body, filename, markdown, source_post_filename, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(draft_id) DO UPDATE SET
+              title = excluded.title,
+              draft_date = excluded.draft_date,
+              body = excluded.body,
+              filename = excluded.filename,
+              markdown = excluded.markdown,
+              source_post_filename = excluded.source_post_filename,
+              updated_at = excluded.updated_at
+            """,
+            (
+                draft_id,
+                fields["title"],
+                fields["draft_date"],
+                fields["body"],
+                fields["filename"],
+                fields["markdown"],
+                fields["source_post_filename"],
+                updated_at,
+            ),
+        )
 
     def list_drafts(self, limit: int = 200) -> list[dict[str, Any]]:
         with self._lock:
@@ -182,59 +260,120 @@ class DraftStore:
         return dict(row)
 
     def upsert_draft(self, draft_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        title = str(payload.get("title", "")).strip()
-        draft_date = str(payload.get("date", "")).strip()
-        body = str(payload.get("body", ""))
-        filename = str(payload.get("filename", "")).strip()
-        markdown = str(payload.get("markdown", ""))
-        source_post_filename = str(payload.get("source_post_filename", "")).strip()
+        fields = self._normalize_draft_payload(payload)
         updated_at = now_utc_iso()
 
-        if not draft_date:
-            draft_date = today_utc_date()
-        if not filename and title:
-            filename = f"{draft_date}-{slugify(title)}.md"
-        if not markdown and title:
-            markdown = build_markdown(title, draft_date, body)
-
         with self._lock:
-            self._conn.execute(
-                """
-                INSERT INTO drafts (
-                  draft_id, title, draft_date, body, filename, markdown, source_post_filename, updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(draft_id) DO UPDATE SET
-                  title = excluded.title,
-                  draft_date = excluded.draft_date,
-                  body = excluded.body,
-                  filename = excluded.filename,
-                  markdown = excluded.markdown,
-                  source_post_filename = excluded.source_post_filename,
-                  updated_at = excluded.updated_at
-                """,
-                (
-                    draft_id,
-                    title,
-                    draft_date,
-                    body,
-                    filename,
-                    markdown,
-                    source_post_filename,
-                    updated_at,
-                ),
-            )
+            self._upsert_draft_locked(draft_id, fields, updated_at)
             self._conn.commit()
 
         return {
             "draft_id": draft_id,
-            "title": title,
-            "draft_date": draft_date,
-            "body": body,
-            "filename": filename,
-            "markdown": markdown,
-            "source_post_filename": source_post_filename,
+            "title": fields["title"],
+            "draft_date": fields["draft_date"],
+            "body": fields["body"],
+            "filename": fields["filename"],
+            "markdown": fields["markdown"],
+            "source_post_filename": fields["source_post_filename"],
             "updated_at": updated_at,
+        }
+
+    def delete_draft(self, draft_id: str) -> bool:
+        with self._lock:
+            deleted = self._conn.execute(
+                "DELETE FROM drafts WHERE draft_id = ?",
+                (draft_id,),
+            ).rowcount
+            self._conn.execute(
+                "DELETE FROM draft_autosaves WHERE draft_id = ?",
+                (draft_id,),
+            )
+            self._conn.commit()
+        return deleted > 0
+
+    def list_autosaves(self, draft_id: str, limit: int = 100) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT autosave_id, draft_id, title, draft_date, filename, source_post_filename, saved_at
+                FROM draft_autosaves
+                WHERE draft_id = ?
+                ORDER BY autosave_id DESC
+                LIMIT ?
+                """,
+                (draft_id, max(1, int(limit))),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_autosave(self, draft_id: str, autosave_id: int) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT autosave_id, draft_id, title, draft_date, body, filename, markdown, source_post_filename, saved_at
+                FROM draft_autosaves
+                WHERE draft_id = ? AND autosave_id = ?
+                """,
+                (draft_id, int(autosave_id)),
+            ).fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def create_autosave(
+        self,
+        draft_id: str,
+        payload: dict[str, Any],
+        keep_latest: int = DEFAULT_AUTOSAVE_HISTORY_LIMIT,
+    ) -> dict[str, Any]:
+        fields = self._normalize_draft_payload(payload)
+        saved_at = now_utc_iso()
+        keep_limit = max(25, int(keep_latest))
+
+        with self._lock:
+            self._upsert_draft_locked(draft_id, fields, saved_at)
+            cursor = self._conn.execute(
+                """
+                INSERT INTO draft_autosaves (
+                  draft_id, title, draft_date, body, filename, markdown, source_post_filename, saved_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    draft_id,
+                    fields["title"],
+                    fields["draft_date"],
+                    fields["body"],
+                    fields["filename"],
+                    fields["markdown"],
+                    fields["source_post_filename"],
+                    saved_at,
+                ),
+            )
+            autosave_id = int(cursor.lastrowid or 0)
+            self._conn.execute(
+                """
+                DELETE FROM draft_autosaves
+                WHERE draft_id = ?
+                  AND autosave_id NOT IN (
+                    SELECT autosave_id
+                    FROM draft_autosaves
+                    WHERE draft_id = ?
+                    ORDER BY autosave_id DESC
+                    LIMIT ?
+                  )
+                """,
+                (draft_id, draft_id, keep_limit),
+            )
+            self._conn.commit()
+
+        return {
+            "autosave_id": autosave_id,
+            "draft_id": draft_id,
+            "title": fields["title"],
+            "draft_date": fields["draft_date"],
+            "filename": fields["filename"],
+            "source_post_filename": fields["source_post_filename"],
+            "saved_at": saved_at,
         }
 
     def upsert_published_post(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -651,7 +790,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", resolved)
             self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
 
     def _resolve_allowed_origin(self, origin: str | None) -> str | None:
         allowed = self.server.allowed_origins
@@ -705,6 +844,29 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             return None
         return filename
 
+    def _draft_autosave_path(self) -> tuple[str, int | None] | None:
+        parsed = urllib.parse.urlparse(self.path)
+        prefix = "/api/drafts/"
+        if not parsed.path.startswith(prefix):
+            return None
+
+        remainder = urllib.parse.unquote(parsed.path[len(prefix) :].strip("/"))
+        if not remainder:
+            return None
+
+        parts = [part.strip() for part in remainder.split("/") if part.strip()]
+        if len(parts) == 2 and parts[1] == "autosaves":
+            if "/" in parts[0]:
+                return None
+            return parts[0], None
+        if len(parts) == 3 and parts[1] == "autosaves":
+            if "/" in parts[0]:
+                return None
+            if not parts[2].isdigit():
+                return None
+            return parts[0], int(parts[2])
+        return None
+
     def do_OPTIONS(self) -> None:
         origin = self.headers.get("Origin")
         self.send_response(204)
@@ -736,6 +898,31 @@ class DraftApiHandler(BaseHTTPRequestHandler):
                 return
             drafts = self.server.store.list_drafts()
             self._send_json(200, {"drafts": drafts}, origin)
+            return
+
+        autosave_route = self._draft_autosave_path()
+        if autosave_route is not None:
+            if not self._authorized():
+                self._send_json(401, {"error": "Unauthorized"}, origin)
+                return
+
+            draft_id, autosave_id = autosave_route
+            if autosave_id is None:
+                query = urllib.parse.parse_qs(parsed.query or "")
+                raw_limit = (query.get("limit") or ["100"])[0]
+                try:
+                    limit = max(1, min(500, int(raw_limit)))
+                except Exception:  # noqa: BLE001
+                    limit = 100
+                autosaves = self.server.store.list_autosaves(draft_id, limit=limit)
+                self._send_json(200, {"autosaves": autosaves}, origin)
+                return
+
+            autosave = self.server.store.get_autosave(draft_id, autosave_id)
+            if autosave is None:
+                self._send_json(404, {"error": "Autosave not found"}, origin)
+                return
+            self._send_json(200, {"autosave": autosave}, origin)
             return
 
         if parsed.path == "/api/posts":
@@ -807,6 +994,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         origin = self.headers.get("Origin")
         parsed = urllib.parse.urlparse(self.path)
+        autosave_route = self._draft_autosave_path()
 
         if parsed.path == "/api/session":
             if not self.server.auth_manager.supports_session:
@@ -837,6 +1025,27 @@ class DraftApiHandler(BaseHTTPRequestHandler):
                 {"token": token, "expires_in": self.server.auth_manager.session_ttl_seconds},
                 origin,
             )
+            return
+
+        if autosave_route is not None:
+            draft_id, autosave_id = autosave_route
+            if autosave_id is not None:
+                self._send_json(404, {"error": "Not found"}, origin)
+                return
+            if not self._authorized():
+                self._send_json(401, {"error": "Unauthorized"}, origin)
+                return
+            try:
+                payload = self._read_json()
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(400, {"error": f"Invalid JSON payload: {exc}"}, origin)
+                return
+
+            try:
+                autosave = self.server.store.create_autosave(draft_id, payload)
+                self._send_json(200, {"autosave": autosave}, origin)
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(500, {"error": str(exc)}, origin)
             return
 
         if parsed.path == "/api/publish":
@@ -915,6 +1124,22 @@ class DraftApiHandler(BaseHTTPRequestHandler):
 
         draft = self.server.store.upsert_draft(draft_id, payload)
         self._send_json(200, {"draft": draft}, origin)
+
+    def do_DELETE(self) -> None:
+        origin = self.headers.get("Origin")
+        draft_id = self._draft_id_from_path()
+        if draft_id is None:
+            self._send_json(404, {"error": "Not found"}, origin)
+            return
+        if not self._authorized():
+            self._send_json(401, {"error": "Unauthorized"}, origin)
+            return
+
+        deleted = self.server.store.delete_draft(draft_id)
+        if not deleted:
+            self._send_json(404, {"error": "Draft not found"}, origin)
+            return
+        self._send_json(200, {"ok": True, "draft_id": draft_id}, origin)
 
 
 def parse_allowed_origins(value: str) -> set[str]:
