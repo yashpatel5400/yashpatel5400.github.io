@@ -31,6 +31,33 @@ sitemap: false
   >
     <div class="blog-editor-workbench">
       <div class="blog-editor-compose">
+        <div class="blog-editor-library">
+          <div class="blog-editor-library-head">
+            <h5>Workspace</h5>
+            <button type="button" data-editor-new-draft>New Draft</button>
+          </div>
+
+          <div class="blog-editor-library-columns">
+            <div class="blog-editor-library-pane">
+              <div class="blog-editor-library-pane-head">
+                <h6>Drafts</h6>
+                <button type="button" data-editor-refresh-drafts>Refresh</button>
+              </div>
+              <ul class="blog-editor-entity-list" data-editor-draft-list></ul>
+            </div>
+
+            <div class="blog-editor-library-pane">
+              <div class="blog-editor-library-pane-head">
+                <h6>Published</h6>
+                <button type="button" data-editor-refresh-posts>Refresh</button>
+              </div>
+              <ul class="blog-editor-entity-list" data-editor-post-list></ul>
+            </div>
+          </div>
+        </div>
+
+        <p class="blog-editor-context" data-editor-context></p>
+
         <div class="blog-editor-meta-row">
           <div class="blog-editor-meta-field blog-editor-meta-field--title">
             <label for="blog-editor-title">Title</label>
@@ -58,6 +85,7 @@ sitemap: false
         <div class="blog-editor-actions">
           <button type="button" data-editor-connect-db>Reconnect</button>
           <button type="button" data-editor-save>Save Draft</button>
+          <button type="button" data-editor-publish>Publish</button>
           <button type="button" data-editor-copy>Copy Markdown</button>
           <button type="button" data-editor-download>Download File</button>
           <button type="button" data-editor-open-github>Open GitHub Prefill</button>
@@ -104,29 +132,44 @@ sitemap: false
     const branch = shell.dataset.editorBranch || 'master';
     const draftApiBase = (shell.dataset.draftApiBase || '').trim().replace(/\/+$/, '');
     const draftApiAuthMode = (shell.dataset.draftApiAuth || 'session').trim().toLowerCase();
-    const draftId = (shell.dataset.draftId || 'main').trim();
+    const defaultDraftId = (shell.dataset.draftId || 'main').trim();
     const sessionUnlockEnabled = draftApiAuthMode === 'session' && Boolean(draftApiBase);
     const localUnlockEnabled = Boolean(expectedKeyHex && pbkdf2SaltHex && pbkdf2Iterations) && !sessionUnlockEnabled;
 
     const statusEl = shell.querySelector('[data-editor-status]');
     const lockBtn = shell.querySelector('[data-editor-lock-btn]');
     const connectDbBtn = shell.querySelector('[data-editor-connect-db]');
+    const newDraftBtn = shell.querySelector('[data-editor-new-draft]');
+    const refreshDraftsBtn = shell.querySelector('[data-editor-refresh-drafts]');
+    const refreshPostsBtn = shell.querySelector('[data-editor-refresh-posts]');
+    const draftListEl = shell.querySelector('[data-editor-draft-list]');
+    const postListEl = shell.querySelector('[data-editor-post-list]');
+    const contextEl = shell.querySelector('[data-editor-context]');
+
     const titleInput = shell.querySelector('#blog-editor-title');
     const dateInput = shell.querySelector('#blog-editor-date');
     const bodyInput = shell.querySelector('#blog-editor-body');
     const previewEl = shell.querySelector('[data-editor-preview]');
     const filenameEl = shell.querySelector('[data-editor-filename]');
     const saveBtn = shell.querySelector('[data-editor-save]');
+    const publishBtn = shell.querySelector('[data-editor-publish]');
     const copyBtn = shell.querySelector('[data-editor-copy]');
     const downloadBtn = shell.querySelector('[data-editor-download]');
     const openGithubBtn = shell.querySelector('[data-editor-open-github]');
-    const draftStorageKey = 'make-post-draft-v1';
+
+    const draftSnapshotKey = 'make-post-draft-snapshot-v2';
     const draftApiTokenStorageKey = 'make-post-draft-api-token-v1';
     const draftApiTokenPersistentStorageKey = 'make-post-draft-api-token-persist-v1';
 
-    let shellVisible = false;
-    let failedAttempts = 0;
-    let blockedUntil = 0;
+    const state = {
+      shellVisible: false,
+      failedAttempts: 0,
+      blockedUntil: 0,
+      currentDraftId: defaultDraftId || 'main',
+      sourcePostFilename: '',
+      drafts: [],
+      posts: []
+    };
 
     function setStatus(message, kind) {
       if (!statusEl) return;
@@ -141,78 +184,6 @@ sitemap: false
 
     function isSessionAuthMode() {
       return draftApiAuthMode === 'session';
-    }
-
-    function getStoredApiToken() {
-      try {
-        const sessionToken = window.sessionStorage.getItem(draftApiTokenStorageKey);
-        if (sessionToken) return sessionToken;
-        const persistedToken = window.localStorage.getItem(draftApiTokenPersistentStorageKey) || '';
-        if (persistedToken) {
-          window.sessionStorage.setItem(draftApiTokenStorageKey, persistedToken);
-          return persistedToken;
-        }
-        return '';
-      } catch (err) {
-        return '';
-      }
-    }
-
-    function setStoredApiToken(token) {
-      try {
-        if (token) {
-          window.sessionStorage.setItem(draftApiTokenStorageKey, token);
-          window.localStorage.setItem(draftApiTokenPersistentStorageKey, token);
-        } else {
-          window.sessionStorage.removeItem(draftApiTokenStorageKey);
-          window.localStorage.removeItem(draftApiTokenPersistentStorageKey);
-        }
-      } catch (err) {
-        // no-op
-      }
-    }
-
-    async function requestSessionToken(passphrase) {
-      const response = await fetch(draftApiBase + '/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passphrase: passphrase })
-      });
-      if (!response.ok) {
-        throw new Error(await parseErrorMessage(response));
-      }
-      const payload = await response.json();
-      const token = payload && typeof payload.token === 'string' ? payload.token.trim() : '';
-      if (!token) {
-        throw new Error('Draft DB session response is invalid.');
-      }
-      setStoredApiToken(token);
-      return token;
-    }
-
-    async function ensureApiToken(forcePrompt, passphraseHint) {
-      if (!hasDraftApiConfigured()) return '';
-      if (!forcePrompt) {
-        const existing = getStoredApiToken();
-        if (existing) return existing;
-      }
-
-      if (isSessionAuthMode()) {
-        const passphraseInput =
-          typeof passphraseHint === 'string' && passphraseHint.trim()
-            ? passphraseHint.trim()
-            : window.prompt('Passphrase');
-        if (!passphraseInput || !passphraseInput.trim()) return '';
-        const token = await requestSessionToken(passphraseInput.trim());
-        setStoredApiToken(token);
-        return token;
-      }
-
-      const tokenInput = window.prompt('Draft DB token');
-      if (!tokenInput || !tokenInput.trim()) return '';
-      const token = tokenInput.trim();
-      setStoredApiToken(token);
-      return token;
     }
 
     function todayString() {
@@ -239,6 +210,10 @@ sitemap: false
     function ensureDate() {
       if (!dateInput.value) dateInput.value = todayString();
       return dateInput.value;
+    }
+
+    function generateDraftId() {
+      return 'draft-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
     }
 
     function escapeHtml(text) {
@@ -286,6 +261,113 @@ sitemap: false
       });
     }
 
+    function getStoredApiToken() {
+      try {
+        const sessionToken = window.sessionStorage.getItem(draftApiTokenStorageKey);
+        if (sessionToken) return sessionToken;
+        const persistedToken = window.localStorage.getItem(draftApiTokenPersistentStorageKey) || '';
+        if (persistedToken) {
+          window.sessionStorage.setItem(draftApiTokenStorageKey, persistedToken);
+          return persistedToken;
+        }
+        return '';
+      } catch (err) {
+        return '';
+      }
+    }
+
+    function setStoredApiToken(token) {
+      try {
+        if (token) {
+          window.sessionStorage.setItem(draftApiTokenStorageKey, token);
+          window.localStorage.setItem(draftApiTokenPersistentStorageKey, token);
+        } else {
+          window.sessionStorage.removeItem(draftApiTokenStorageKey);
+          window.localStorage.removeItem(draftApiTokenPersistentStorageKey);
+        }
+      } catch (err) {
+        // no-op
+      }
+    }
+
+    async function parseErrorMessage(response) {
+      try {
+        const payload = await response.json();
+        if (payload && typeof payload.error === 'string') return payload.error;
+      } catch (err) {
+        // no-op
+      }
+      return 'Draft DB request failed.';
+    }
+
+    async function requestSessionToken(passphrase) {
+      const response = await fetch(draftApiBase + '/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passphrase: passphrase })
+      });
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      const payload = await response.json();
+      const token = payload && typeof payload.token === 'string' ? payload.token.trim() : '';
+      if (!token) {
+        throw new Error('Draft DB session response is invalid.');
+      }
+      setStoredApiToken(token);
+      return token;
+    }
+
+    async function ensureApiToken(forcePrompt, passphraseHint) {
+      if (!hasDraftApiConfigured()) return '';
+      if (!forcePrompt) {
+        const existing = getStoredApiToken();
+        if (existing) return existing;
+      }
+
+      if (isSessionAuthMode()) {
+        const passphraseInput =
+          typeof passphraseHint === 'string' && passphraseHint.trim()
+            ? passphraseHint.trim()
+            : window.prompt('Passphrase');
+        if (!passphraseInput || !passphraseInput.trim()) return '';
+        return requestSessionToken(passphraseInput.trim());
+      }
+
+      const tokenInput = window.prompt('Draft DB token');
+      if (!tokenInput || !tokenInput.trim()) return '';
+      const token = tokenInput.trim();
+      setStoredApiToken(token);
+      return token;
+    }
+
+    async function apiRequest(path, options, promptForToken, passphraseHint) {
+      if (!hasDraftApiConfigured()) return null;
+      let token = getStoredApiToken();
+      if (!token && promptForToken) {
+        token = await ensureApiToken(true, passphraseHint);
+      }
+      if (!token) return null;
+
+      const request = Object.assign({}, options || {});
+      const headers = Object.assign({}, request.headers || {});
+      headers.Authorization = 'Bearer ' + token;
+      if (!headers['Content-Type'] && request.body) {
+        headers['Content-Type'] = 'application/json';
+      }
+      request.headers = headers;
+
+      let response = await fetch(draftApiBase + path, request);
+      if (response.status === 401 && promptForToken) {
+        setStoredApiToken('');
+        token = await ensureApiToken(true, passphraseHint);
+        if (!token) return null;
+        request.headers.Authorization = 'Bearer ' + token;
+        response = await fetch(draftApiBase + path, request);
+      }
+      return response;
+    }
+
     function buildPostContent(allowPartial) {
       const title = titleInput.value.trim();
       const date = ensureDate();
@@ -296,7 +378,7 @@ sitemap: false
       if (!allowPartial && !body) throw new Error('Markdown body is required.');
 
       const effectiveTitle = title || 'Untitled Draft';
-      const filename = date + '-' + slug + '.md';
+      const filename = state.sourcePostFilename || (date + '-' + slug + '.md');
       const frontMatter = [
         '---',
         'layout: post',
@@ -315,115 +397,272 @@ sitemap: false
       };
     }
 
-    let previewTimer = null;
-    let autosaveTimer = null;
-    function schedulePreview() {
-      if (previewTimer) window.clearTimeout(previewTimer);
-      previewTimer = window.setTimeout(updatePreview, 120);
-    }
-
-    function saveDraftLocal(showMessage) {
+    function setDraftSnapshotLocal(showMessage) {
       try {
         const payload = {
+          draftId: state.currentDraftId,
+          sourcePostFilename: state.sourcePostFilename,
           title: titleInput.value,
           date: dateInput.value,
           body: bodyInput.value,
           savedAt: new Date().toISOString()
         };
-        window.localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+        window.localStorage.setItem(draftSnapshotKey, JSON.stringify(payload));
         if (showMessage) setStatus('Draft saved locally.', 'success');
         return true;
       } catch (err) {
-        if (showMessage) {
-          setStatus('Unable to save draft in this browser.', 'error');
-        }
+        if (showMessage) setStatus('Unable to save draft in this browser.', 'error');
         return false;
       }
     }
 
-    function loadDraftLocal(showMessage) {
+    function loadDraftSnapshotLocal(showMessage) {
       try {
-        const raw = window.localStorage.getItem(draftStorageKey);
+        const raw = window.localStorage.getItem(draftSnapshotKey);
         if (!raw) return false;
         const payload = JSON.parse(raw);
         if (!payload || typeof payload !== 'object') return false;
+
+        if (typeof payload.draftId === 'string' && payload.draftId.trim()) {
+          state.currentDraftId = payload.draftId.trim();
+        }
+        if (typeof payload.sourcePostFilename === 'string') {
+          state.sourcePostFilename = payload.sourcePostFilename.trim();
+        }
         if (typeof payload.title === 'string') titleInput.value = payload.title;
         if (typeof payload.date === 'string') dateInput.value = payload.date;
         if (typeof payload.body === 'string') bodyInput.value = payload.body;
         if (!dateInput.value) dateInput.value = todayString();
+
         if (showMessage) setStatus('Draft restored from local save.', 'success');
         return true;
       } catch (err) {
-        if (showMessage) {
-          setStatus('Saved draft could not be restored.', 'error');
+        if (showMessage) setStatus('Saved draft could not be restored.', 'error');
+        return false;
+      }
+    }
+
+    function applyEditorRecord(record) {
+      if (!record || typeof record !== 'object') return;
+      if (typeof record.title === 'string') titleInput.value = record.title;
+      if (typeof record.draft_date === 'string' && record.draft_date) {
+        dateInput.value = record.draft_date;
+      } else if (typeof record.date === 'string' && record.date) {
+        dateInput.value = record.date;
+      }
+      if (typeof record.body === 'string') bodyInput.value = record.body;
+      if (!dateInput.value) dateInput.value = todayString();
+
+      if (typeof record.source_post_filename === 'string') {
+        state.sourcePostFilename = record.source_post_filename.trim();
+      }
+    }
+
+    function updateContextLabel() {
+      if (!contextEl) return;
+      if (state.sourcePostFilename) {
+        contextEl.textContent = 'Editing published post: ' + state.sourcePostFilename;
+        return;
+      }
+      contextEl.textContent = 'Editing draft: ' + state.currentDraftId;
+    }
+
+    function formatShortTimestamp(value) {
+      if (!value) return '';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function renderDraftList() {
+      if (!draftListEl) return;
+      draftListEl.innerHTML = '';
+      if (!state.drafts.length) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'blog-editor-entity-empty';
+        emptyItem.textContent = 'No drafts yet.';
+        draftListEl.appendChild(emptyItem);
+        return;
+      }
+
+      state.drafts.forEach(function(draft) {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'blog-editor-entity-btn';
+        btn.setAttribute('data-draft-id', draft.draft_id || '');
+
+        if ((draft.draft_id || '') === state.currentDraftId && !state.sourcePostFilename) {
+          btn.classList.add('is-active');
         }
-        return false;
-      }
+
+        const title = (draft.title || '').trim() || 'Untitled Draft';
+        const dateLabel = draft.draft_date || '';
+        const tsLabel = formatShortTimestamp(draft.updated_at);
+        const metaParts = [dateLabel, tsLabel].filter(Boolean);
+
+        btn.innerHTML =
+          '<span class="blog-editor-entity-title">' + escapeHtml(title) + '</span>' +
+          '<span class="blog-editor-entity-meta">' + escapeHtml(metaParts.join(' · ')) + '</span>';
+
+        li.appendChild(btn);
+        draftListEl.appendChild(li);
+      });
     }
 
-    async function parseErrorMessage(response) {
-      try {
-        const payload = await response.json();
-        if (payload && typeof payload.error === 'string') return payload.error;
-      } catch (err) {
-        // no-op
+    function renderPostList() {
+      if (!postListEl) return;
+      postListEl.innerHTML = '';
+      if (!state.posts.length) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'blog-editor-entity-empty';
+        emptyItem.textContent = 'No published posts found.';
+        postListEl.appendChild(emptyItem);
+        return;
       }
-      return 'Draft DB request failed.';
+
+      state.posts.forEach(function(post) {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'blog-editor-entity-btn';
+        btn.setAttribute('data-post-filename', post.filename || '');
+        if ((post.filename || '') === state.sourcePostFilename) {
+          btn.classList.add('is-active');
+        }
+
+        const title = (post.title || '').trim() || (post.filename || 'Untitled');
+        const dateLabel = post.date || '';
+
+        btn.innerHTML =
+          '<span class="blog-editor-entity-title">' + escapeHtml(title) + '</span>' +
+          '<span class="blog-editor-entity-meta">' + escapeHtml(dateLabel + (post.filename ? ' · ' + post.filename : '')) + '</span>';
+
+        li.appendChild(btn);
+        postListEl.appendChild(li);
+      });
     }
 
-    async function apiRequest(path, options, promptForToken) {
-      if (!hasDraftApiConfigured()) return null;
-      let token = getStoredApiToken();
-      if (!token && promptForToken) {
-        token = await ensureApiToken(true);
-      }
-      if (!token) return null;
-
-      const request = Object.assign({}, options || {});
-      const headers = Object.assign({}, request.headers || {});
-      headers.Authorization = 'Bearer ' + token;
-      if (!headers['Content-Type'] && request.body) {
-        headers['Content-Type'] = 'application/json';
-      }
-      request.headers = headers;
-
-      let response = await fetch(draftApiBase + path, request);
-      if (response.status === 401 && promptForToken) {
-        setStoredApiToken('');
-        token = await ensureApiToken(true);
-        if (!token) return null;
-        request.headers.Authorization = 'Bearer ' + token;
-        response = await fetch(draftApiBase + path, request);
-      }
-      return response;
-    }
-
-    async function loadDraftRemote(showMessage, promptForToken) {
-      if (!hasDraftApiConfigured()) return false;
-      const response = await apiRequest('/api/drafts/' + encodeURIComponent(draftId), { method: 'GET' }, promptForToken);
+    async function fetchDraftList(promptForToken) {
+      const response = await apiRequest('/api/drafts', { method: 'GET' }, promptForToken);
       if (response === null) return false;
-      if (response.status === 404) {
-        if (showMessage) setStatus('Connected to Draft DB. No remote draft yet.', 'success');
-        return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
       }
+      const payload = await response.json();
+      state.drafts = Array.isArray(payload && payload.drafts) ? payload.drafts : [];
+      renderDraftList();
+      return true;
+    }
+
+    async function fetchPostList(promptForToken) {
+      const response = await apiRequest('/api/posts', { method: 'GET' }, promptForToken);
+      if (response === null) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      const payload = await response.json();
+      state.posts = Array.isArray(payload && payload.posts) ? payload.posts : [];
+      renderPostList();
+      return true;
+    }
+
+    async function refreshLibrary(promptForToken) {
+      let draftsError = null;
+      let postsError = null;
+
+      try {
+        await fetchDraftList(promptForToken);
+      } catch (err) {
+        draftsError = err;
+        state.drafts = [];
+        renderDraftList();
+      }
+
+      try {
+        await fetchPostList(promptForToken);
+      } catch (err) {
+        postsError = err;
+        state.posts = [];
+        renderPostList();
+      }
+
+      if (draftsError && postsError) {
+        throw draftsError;
+      }
+      return { draftsError: draftsError, postsError: postsError };
+    }
+
+    async function loadDraftRemoteById(draftId, showMessage, promptForToken) {
+      if (!draftId) return false;
+      const response = await apiRequest(
+        '/api/drafts/' + encodeURIComponent(draftId),
+        { method: 'GET' },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (response.status === 404) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+      const payload = await response.json();
+      const draft = payload && payload.draft ? payload.draft : null;
+      if (!draft || typeof draft !== 'object') return false;
+
+      state.currentDraftId = draftId;
+      applyEditorRecord(draft);
+      updatePreview();
+      updateContextLabel();
+      setDraftSnapshotLocal(false);
+      renderDraftList();
+      renderPostList();
+      if (showMessage) setStatus('Draft loaded from database.', 'success');
+      return true;
+    }
+
+    async function loadPublishedPost(filename, showMessage, promptForToken) {
+      if (!filename) return false;
+      const response = await apiRequest(
+        '/api/posts/' + encodeURIComponent(filename),
+        { method: 'GET' },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (response.status === 404) return false;
       if (!response.ok) {
         throw new Error(await parseErrorMessage(response));
       }
 
       const payload = await response.json();
-      const draft = payload && payload.draft ? payload.draft : null;
-      if (!draft || typeof draft !== 'object') return false;
+      const post = payload && payload.post ? payload.post : null;
+      if (!post || typeof post !== 'object') return false;
 
-      if (typeof draft.title === 'string') titleInput.value = draft.title;
-      if (typeof draft.draft_date === 'string') dateInput.value = draft.draft_date;
-      if (typeof draft.body === 'string') bodyInput.value = draft.body;
-      if (!dateInput.value) dateInput.value = todayString();
-      saveDraftLocal(false);
-      if (showMessage) setStatus('Draft loaded from database.', 'success');
+      const matchingDraft = state.drafts.find(function(item) {
+        return (item && item.source_post_filename) === filename;
+      });
+      if (matchingDraft && matchingDraft.draft_id) {
+        state.currentDraftId = matchingDraft.draft_id;
+      } else {
+        state.currentDraftId = generateDraftId();
+      }
+
+      state.sourcePostFilename = filename;
+      applyEditorRecord(post);
+      updatePreview();
+      updateContextLabel();
+      setDraftSnapshotLocal(false);
+      renderDraftList();
+      renderPostList();
+      if (showMessage) setStatus('Loaded published post for editing.', 'success');
       return true;
     }
 
-    async function saveDraftRemote(showMessage, promptForToken) {
+    async function saveDraftRemote(showMessage, promptForToken, passphraseHint) {
       if (!hasDraftApiConfigured()) return false;
       const built = buildPostContent(true);
       const payload = {
@@ -431,25 +670,114 @@ sitemap: false
         date: ensureDate(),
         body: bodyInput.value,
         filename: built.filename,
-        markdown: built.markdown
+        markdown: built.markdown,
+        source_post_filename: state.sourcePostFilename
       };
+
       const response = await apiRequest(
-        '/api/drafts/' + encodeURIComponent(draftId),
+        '/api/drafts/' + encodeURIComponent(state.currentDraftId),
         { method: 'PUT', body: JSON.stringify(payload) },
-        promptForToken
+        promptForToken,
+        passphraseHint
       );
       if (response === null) return false;
       if (!response.ok) {
         throw new Error(await parseErrorMessage(response));
       }
+
+      const result = await response.json();
+      if (result && result.draft && typeof result.draft.source_post_filename === 'string') {
+        state.sourcePostFilename = result.draft.source_post_filename;
+      }
+
+      await fetchDraftList(false).catch(function() {
+        // no-op
+      });
+      updateContextLabel();
+      renderDraftList();
+      renderPostList();
       if (showMessage) setStatus('Draft saved to database.', 'success');
       return true;
+    }
+
+    async function publishPost(passphraseHint) {
+      if (!hasDraftApiConfigured()) {
+        throw new Error('Draft DB URL is not configured in _data/editor.yml.');
+      }
+
+      const built = buildPostContent(false);
+      const payload = {
+        title: built.title,
+        date: built.date,
+        body: built.body,
+        filename: state.sourcePostFilename || built.filename,
+        source_draft_id: state.currentDraftId
+      };
+
+      const response = await apiRequest(
+        '/api/publish',
+        { method: 'POST', body: JSON.stringify(payload) },
+        true,
+        passphraseHint
+      );
+      if (response === null) {
+        throw new Error('Authentication is required to publish.');
+      }
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+
+      const result = await response.json();
+      const post = result && result.post ? result.post : null;
+      if (!post || typeof post !== 'object') {
+        throw new Error('Publish response was invalid.');
+      }
+
+      state.sourcePostFilename = post.filename || state.sourcePostFilename;
+      titleInput.value = post.title || titleInput.value;
+      dateInput.value = post.date || dateInput.value;
+      bodyInput.value = post.body || bodyInput.value;
+
+      setDraftSnapshotLocal(false);
+      updatePreview();
+      updateContextLabel();
+
+      await refreshLibrary(false).catch(function() {
+        // no-op
+      });
+
+      const blogLink = post.html_url || ('{{ "/blog/" | relative_url }}');
+      setStatus('Published. It will appear on /blog/ after GitHub Pages rebuilds. ' + blogLink, 'success');
+      return true;
+    }
+
+    function startNewDraft(showMessage) {
+      setDraftSnapshotLocal(false);
+      state.currentDraftId = generateDraftId();
+      state.sourcePostFilename = '';
+      titleInput.value = '';
+      dateInput.value = todayString();
+      bodyInput.value = '';
+      updatePreview();
+      updateContextLabel();
+      renderDraftList();
+      renderPostList();
+      setDraftSnapshotLocal(false);
+      if (showMessage) setStatus('Started a new draft.', 'success');
+      titleInput.focus();
+    }
+
+    let previewTimer = null;
+    let autosaveTimer = null;
+    function schedulePreview() {
+      if (previewTimer) window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(updatePreview, 120);
     }
 
     function scheduleAutosave() {
       if (autosaveTimer) window.clearTimeout(autosaveTimer);
       autosaveTimer = window.setTimeout(function() {
-        saveDraftLocal(false);
+        setDraftSnapshotLocal(false);
       }, 400);
     }
 
@@ -489,11 +817,10 @@ sitemap: false
           '</article>';
 
         renderMathInPreview();
-        setStatus('', null);
       } catch (err) {
         filenameEl.textContent = 'YYYY-MM-DD-my-post.md';
         previewEl.innerHTML = '<p class="blog-editor-preview-empty">Unable to render preview.</p>';
-        if (err && err.message) setStatus(err.message, 'error');
+        setStatus(err && err.message ? err.message : 'Unable to render preview.', 'error');
       }
     }
 
@@ -539,41 +866,58 @@ sitemap: false
     async function showShell() {
       shell.hidden = false;
       if (lockState) lockState.hidden = true;
-      shellVisible = true;
-      loadDraftLocal(false);
+      state.shellVisible = true;
+
+      loadDraftSnapshotLocal(false);
+      if (!state.currentDraftId) {
+        state.currentDraftId = defaultDraftId || 'main';
+      }
+      if (!dateInput.value) dateInput.value = todayString();
+
       if (hasDraftApiConfigured() && getStoredApiToken()) {
         try {
-          await loadDraftRemote(false, false);
+          await refreshLibrary(false);
+          const loadedCurrent = await loadDraftRemoteById(state.currentDraftId, false, false);
+          if (!loadedCurrent && state.drafts.length) {
+            await loadDraftRemoteById(state.drafts[0].draft_id, false, false);
+          }
         } catch (err) {
           // no-op
         }
+      } else {
+        renderDraftList();
+        renderPostList();
       }
-      if (!dateInput.value) dateInput.value = todayString();
+
+      updateContextLabel();
       updatePreview();
       refreshPreviewWhenRenderersReady();
       titleInput.focus();
     }
 
     function hideShell() {
-      saveDraftLocal(false);
+      setDraftSnapshotLocal(false);
       shell.hidden = true;
       if (lockState) lockState.hidden = false;
-      shellVisible = false;
+      state.shellVisible = false;
       setStatus('', null);
     }
 
-    async function requestUnlockAndShow() {
-      if (shellVisible) return;
+    async function requestUnlockAndShow(options) {
+      const opts = options && typeof options === 'object' ? options : {};
+      const allowPrompt = opts.allowPrompt !== false;
+      const silent = opts.silent === true;
+      if (state.shellVisible) return;
 
       const hasSessionUnlock = hasDraftApiConfigured() && isSessionAuthMode();
       if (!localUnlockEnabled && !hasSessionUnlock) {
-        window.alert('Editor authentication is not configured.');
+        if (!silent) window.alert('Editor authentication is not configured.');
         return;
       }
 
       const now = Date.now();
-      if (now < blockedUntil) {
-        window.alert('Editor temporarily blocked. Try again in a minute.');
+      if (now < state.blockedUntil) {
+        if (!silent) window.alert('Editor temporarily blocked. Try again in a minute.');
         return;
       }
 
@@ -581,8 +925,8 @@ sitemap: false
         const existingToken = getStoredApiToken();
         if (existingToken) {
           try {
-            await loadDraftRemote(false, false);
-            failedAttempts = 0;
+            await refreshLibrary(false);
+            state.failedAttempts = 0;
             await showShell();
             setStatus('Editor unlocked.', 'success');
             return;
@@ -595,6 +939,8 @@ sitemap: false
         }
       }
 
+      if (!allowPrompt) return;
+
       const passphrase = window.prompt('Passphrase');
       if (passphrase === null || !passphrase.trim()) return;
 
@@ -604,12 +950,12 @@ sitemap: false
         if (localUnlockEnabled) {
           const derivedHex = await derivePassphraseKeyHex(normalizedPassphrase);
           if (derivedHex !== expectedKeyHex) {
-            failedAttempts += 1;
-            if (failedAttempts >= 5) {
-              failedAttempts = 0;
-              blockedUntil = Date.now() + 60000;
+            state.failedAttempts += 1;
+            if (state.failedAttempts >= 5) {
+              state.failedAttempts = 0;
+              state.blockedUntil = Date.now() + 60000;
             }
-            window.alert('Unable to open editor.');
+            if (!silent) window.alert('Unable to open editor.');
             return;
           }
         }
@@ -617,29 +963,37 @@ sitemap: false
         if (hasSessionUnlock) {
           const token = await ensureApiToken(false, normalizedPassphrase);
           if (!token) {
-            failedAttempts += 1;
-            if (failedAttempts >= 5) {
-              failedAttempts = 0;
-              blockedUntil = Date.now() + 60000;
+            state.failedAttempts += 1;
+            if (state.failedAttempts >= 5) {
+              state.failedAttempts = 0;
+              state.blockedUntil = Date.now() + 60000;
             }
-            window.alert('Unable to open editor.');
+            if (!silent) window.alert('Unable to open editor.');
             return;
           }
         }
 
-        failedAttempts = 0;
+        state.failedAttempts = 0;
         await showShell();
         setStatus('Editor unlocked.', 'success');
       } catch (err) {
-        window.alert('Unable to open editor.');
+        if (!silent) window.alert('Unable to open editor.');
       }
     }
 
     function maybeRevealFromHash() {
       const hash = (window.location.hash || '').toLowerCase();
       if (hash === '#compose' || hash === '#draft') {
-        requestUnlockAndShow();
+        requestUnlockAndShow({ allowPrompt: true, silent: false });
       }
+    }
+
+    async function maybeAutoUnlockFromStoredCredentials() {
+      const hash = (window.location.hash || '').toLowerCase();
+      if (hash === '#compose' || hash === '#draft') return;
+      if (!hasDraftApiConfigured() || !isSessionAuthMode()) return;
+      if (!getStoredApiToken()) return;
+      await requestUnlockAndShow({ allowPrompt: false, silent: true });
     }
 
     function isComposeShortcut(event) {
@@ -650,7 +1004,7 @@ sitemap: false
 
     if (unlockBtn) {
       unlockBtn.addEventListener('click', function() {
-        requestUnlockAndShow();
+        requestUnlockAndShow({ allowPrompt: true, silent: false });
       });
     }
 
@@ -664,39 +1018,97 @@ sitemap: false
           setStatus('Draft DB URL is not configured in _data/editor.yml.', 'error');
           return;
         }
-        let token = '';
+
         try {
-          token = await ensureApiToken(true);
-        } catch (err) {
-          setStatus(err && err.message ? err.message : 'Unable to authenticate with Draft DB.', 'error');
-          return;
-        }
-        if (!token) {
-          setStatus(
-            isSessionAuthMode()
-              ? 'Passphrase is required to connect.'
-              : 'Draft DB token is required to connect.',
-            'error'
-          );
-          return;
-        }
-        try {
-          const restored = await loadDraftRemote(false, false);
-          updatePreview();
-          if (restored) {
-            setStatus('Connected to Draft DB and loaded draft.', 'success');
-          } else {
-            setStatus('Connected to Draft DB.', 'success');
+          const token = await ensureApiToken(true);
+          if (!token) {
+            setStatus(
+              isSessionAuthMode()
+                ? 'Passphrase is required to connect.'
+                : 'Draft DB token is required to connect.',
+              'error'
+            );
+            return;
           }
+
+          await refreshLibrary(false);
+          const loaded = await loadDraftRemoteById(state.currentDraftId, false, false);
+          if (!loaded && state.drafts.length) {
+            await loadDraftRemoteById(state.drafts[0].draft_id, false, false);
+          }
+          updatePreview();
+          setStatus('Connected to Draft DB.', 'success');
         } catch (err) {
           setStatus(err && err.message ? err.message : 'Unable to connect to Draft DB.', 'error');
         }
       });
     }
 
+    if (newDraftBtn) {
+      newDraftBtn.addEventListener('click', function() {
+        startNewDraft(true);
+      });
+    }
+
+    if (refreshDraftsBtn) {
+      refreshDraftsBtn.addEventListener('click', async function() {
+        try {
+          const ok = await fetchDraftList(true);
+          if (ok) setStatus('Draft list refreshed.', 'success');
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to refresh drafts.', 'error');
+        }
+      });
+    }
+
+    if (refreshPostsBtn) {
+      refreshPostsBtn.addEventListener('click', async function() {
+        try {
+          const ok = await fetchPostList(true);
+          if (ok) setStatus('Published posts refreshed.', 'success');
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to refresh published posts.', 'error');
+        }
+      });
+    }
+
+    if (draftListEl) {
+      draftListEl.addEventListener('click', async function(event) {
+        const target = event.target && event.target.closest('[data-draft-id]');
+        if (!target) return;
+        const selectedId = (target.getAttribute('data-draft-id') || '').trim();
+        if (!selectedId) return;
+        try {
+          const loaded = await loadDraftRemoteById(selectedId, true, true);
+          if (!loaded) {
+            setStatus('Draft not found.', 'error');
+          }
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to load draft.', 'error');
+        }
+      });
+    }
+
+    if (postListEl) {
+      postListEl.addEventListener('click', async function(event) {
+        const target = event.target && event.target.closest('[data-post-filename]');
+        if (!target) return;
+        const filename = (target.getAttribute('data-post-filename') || '').trim();
+        if (!filename) return;
+        try {
+          const loaded = await loadPublishedPost(filename, true, true);
+          if (!loaded) {
+            setStatus('Published post not found.', 'error');
+          }
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to load published post.', 'error');
+        }
+      });
+    }
+
     if (saveBtn) {
       saveBtn.addEventListener('click', async function() {
-        const localSaved = saveDraftLocal(false);
+        const localSaved = setDraftSnapshotLocal(false);
         if (!hasDraftApiConfigured()) {
           if (localSaved) {
             setStatus('Saved locally. Configure Draft DB URL for backend saves.', 'success');
@@ -713,12 +1125,7 @@ sitemap: false
             return;
           }
           if (localSaved) {
-            setStatus(
-              isSessionAuthMode()
-                ? 'Saved locally. Passphrase is required for backend save.'
-                : 'Saved locally. Draft DB token is required for backend save.',
-              'error'
-            );
+            setStatus('Saved locally. Authentication is required for backend save.', 'error');
           } else {
             setStatus('Unable to save draft.', 'error');
           }
@@ -728,6 +1135,25 @@ sitemap: false
           } else {
             setStatus(err && err.message ? err.message : 'Unable to save draft.', 'error');
           }
+        }
+      });
+    }
+
+    if (publishBtn) {
+      publishBtn.addEventListener('click', async function() {
+        const localSaved = setDraftSnapshotLocal(false);
+        try {
+          if (hasDraftApiConfigured()) {
+            await saveDraftRemote(false, true).catch(function() {
+              // continue with publish attempt
+            });
+          }
+          await publishPost();
+          if (!localSaved) {
+            setDraftSnapshotLocal(false);
+          }
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to publish post.', 'error');
         }
       });
     }
@@ -781,17 +1207,20 @@ sitemap: false
     document.addEventListener('keydown', function(event) {
       if (isComposeShortcut(event)) {
         event.preventDefault();
-        requestUnlockAndShow();
+        requestUnlockAndShow({ allowPrompt: true, silent: false });
       }
     });
 
     window.addEventListener('hashchange', maybeRevealFromHash);
     window.addEventListener('beforeunload', function() {
-      if (shellVisible) saveDraftLocal(false);
+      if (state.shellVisible) setDraftSnapshotLocal(false);
     });
 
     hideShell();
     maybeRevealFromHash();
+    maybeAutoUnlockFromStoredCredentials().catch(function() {
+      // no-op
+    });
   })();
 </script>
 {% endif %}

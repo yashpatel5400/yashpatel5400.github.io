@@ -51,6 +51,13 @@ Auth variables:
 - Session mode: `DRAFT_DB_OWNER_PASSPHRASE` + `DRAFT_DB_SESSION_SECRET`
 - Token mode: `DRAFT_DB_TOKEN`
 
+GitHub publish variables:
+
+- `DRAFT_DB_GITHUB_TOKEN` (PAT with `contents:write` access on the site repo)
+- `DRAFT_DB_GITHUB_REPO` (example: `yashpatel5400/yashpatel5400.github.io`)
+- `DRAFT_DB_GITHUB_BRANCH` (default: `master`)
+- `DRAFT_DB_GITHUB_TIMEOUT_SECONDS` (default: `20`)
+
 ## Deploying Remotely
 
 Any host that can run Python works (Fly.io, Railway, Render, VPS, etc.).
@@ -61,14 +68,19 @@ Requirements:
 2. Set `DRAFT_DB_ALLOWED_ORIGINS` to your site origin(s), for example:
    - `https://ypatel.io,https://yashpatel5400.github.io`
 3. Set secrets as host environment variables (never in git).
-4. Update `draft_api_base` in `/Users/yash/Documents/Personal/yashpatel5400.github.io/_data/editor.yml` to your deployed API URL.
+4. Set GitHub publish secrets (`DRAFT_DB_GITHUB_TOKEN` and `DRAFT_DB_GITHUB_REPO`) on the host.
+5. Update `draft_api_base` in `/Users/yash/Documents/Personal/yashpatel5400.github.io/_data/editor.yml` to your deployed API URL.
 
 ## API
 
 - `GET /health` (no auth)
 - `POST /api/session` (session mode only)
+- `GET /api/drafts` (Bearer token)
 - `GET /api/drafts/<draft_id>` (Bearer token)
 - `PUT /api/drafts/<draft_id>` (Bearer token)
+- `GET /api/posts` (Bearer token)
+- `GET /api/posts/<filename>.md` (Bearer token)
+- `POST /api/publish` (Bearer token)
 
 `PUT` payload fields:
 
@@ -77,3 +89,12 @@ Requirements:
 - `body`
 - `filename`
 - `markdown`
+- `source_post_filename` (optional)
+
+`POST /api/publish` payload fields:
+
+- `title` (required)
+- `date` (required, `YYYY-MM-DD`)
+- `body` (required)
+- `filename` (optional; omit for auto `YYYY-MM-DD-slug.md`)
+- `source_draft_id` (optional; links publish back to draft record)
