@@ -1311,7 +1311,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     }}
     .shared-preview-layout {{
       display: grid;
-      grid-template-columns: minmax(0, 1.7fr) minmax(280px, 360px);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 1.3rem;
       align-items: start;
       position: relative;
@@ -1356,6 +1356,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       border-left: 1px solid #dde3ef;
       padding-left: 1rem;
       min-height: 220px;
+      min-width: 0;
     }}
     .shared-preview-comments-layer {{
       position: relative;
