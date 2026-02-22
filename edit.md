@@ -106,10 +106,6 @@ sitemap: false
         <p class="blog-editor-status" data-editor-status aria-live="polite"></p>
       </div>
 
-      <div class="blog-editor-render">
-        <h4>Rendered Preview</h4>
-        <div class="blog-editor-preview" data-editor-preview></div>
-      </div>
     </div>
   </section>
 </article>
@@ -359,6 +355,7 @@ sitemap: false
     }
 
     function renderMathInPreview() {
+      if (!previewEl) return;
       if (!window.MathJax || typeof window.MathJax.typesetPromise !== 'function') return;
       if (typeof window.MathJax.typesetClear === 'function') {
         window.MathJax.typesetClear([previewEl]);
@@ -1153,6 +1150,7 @@ sitemap: false
     let autosaveTimer = null;
     let autosaveRemoteTimer = null;
     function schedulePreview() {
+      if (!previewEl) return;
       if (previewTimer) window.clearTimeout(previewTimer);
       previewTimer = window.setTimeout(updatePreview, 120);
     }
@@ -1193,6 +1191,7 @@ sitemap: false
     }
 
     function refreshPreviewWhenRenderersReady() {
+      if (!previewEl) return;
       let attempts = 0;
       const intervalId = window.setInterval(function() {
         attempts += 1;
@@ -1207,6 +1206,7 @@ sitemap: false
     }
 
     function updatePreview() {
+      if (!previewEl) return;
       try {
         const built = buildPostContent(true);
         const renderedBody = built.body
@@ -1293,15 +1293,28 @@ sitemap: false
 
     function openFullPagePreview() {
       try {
-        const previewWindow = window.open('', '_blank');
+        const previewWindow = window.open('about:blank', '_blank');
         if (!previewWindow) {
           setStatus('Popup blocked. Allow popups to open full-page preview.', 'error');
           return false;
+        }
+        if (typeof previewWindow.focus === 'function') {
+          previewWindow.focus();
         }
         const html = buildFullPagePreviewHtml();
         previewWindow.document.open();
         previewWindow.document.write(html);
         previewWindow.document.close();
+        if (typeof previewWindow.focus === 'function') {
+          previewWindow.focus();
+          window.setTimeout(function() {
+            try {
+              previewWindow.focus();
+            } catch (err) {
+              // no-op
+            }
+          }, 0);
+        }
         setStatus('Opened full-page preview in a new tab.', 'success');
         return true;
       } catch (err) {
@@ -1562,10 +1575,31 @@ sitemap: false
       return event.metaKey || event.ctrlKey;
     }
 
+    function isPreviewShortcut(event) {
+      const key = (event.key || '').toLowerCase();
+      if (key !== 'enter') return false;
+      if (event.altKey) return false;
+      return event.metaKey || event.ctrlKey;
+    }
+
     function isFocusInComposePane() {
       if (!composePane) return false;
       const active = document.activeElement;
       return Boolean(active && composePane.contains(active));
+    }
+
+    function handlePreviewShortcut(event) {
+      if (!state.shellVisible) return false;
+      if (!isPreviewShortcut(event)) return false;
+      if (!isFocusInComposePane()) return false;
+      event.preventDefault();
+      event.stopPropagation();
+      if (fullPreviewBtn && typeof fullPreviewBtn.click === 'function') {
+        fullPreviewBtn.click();
+      } else {
+        openFullPagePreview();
+      }
+      return true;
     }
 
     async function handleSaveAction() {
@@ -1790,6 +1824,9 @@ sitemap: false
     bodyInput.addEventListener('input', onEditorInput);
 
     document.addEventListener('keydown', function(event) {
+      if (handlePreviewShortcut(event)) {
+        return;
+      }
       if (state.shellVisible && isSaveShortcut(event) && isFocusInComposePane()) {
         event.preventDefault();
         handleSaveAction();
@@ -1801,13 +1838,19 @@ sitemap: false
       }
     });
 
+    if (composePane) {
+      composePane.addEventListener('keydown', function(event) {
+        handlePreviewShortcut(event);
+      }, true);
+    }
+
     window.addEventListener('hashchange', maybeRevealFromHash);
     window.addEventListener('beforeunload', function() {
       if (state.shellVisible) setDraftSnapshotLocal(false);
     });
 
     hideShell();
-    applySidebarCollapsed(getSidebarCollapsedPreference());
+    applySidebarCollapsed(false);
     maybeRevealFromHash();
     maybeAutoUnlockFromStoredCredentials().catch(function() {
       // no-op

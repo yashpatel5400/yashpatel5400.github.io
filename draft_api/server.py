@@ -1311,7 +1311,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     }}
     .shared-preview-layout {{
       display: grid;
-      grid-template-columns: minmax(0, 1.75fr) minmax(340px, 1fr);
+      grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr);
       gap: 1.3rem;
       align-items: start;
       position: relative;
@@ -1320,6 +1320,9 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       max-width: none;
       width: 100%;
       margin: 0;
+    }}
+    .shared-preview-layout .post-body {{
+      position: relative;
     }}
     .shared-preview-identity {{
       margin: 0 0 0.95rem;
@@ -1528,6 +1531,21 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     .shared-preview-comment-trigger[disabled] {{
       opacity: 0.75;
       cursor: default;
+    }}
+    .shared-preview-highlight-layer {{
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      overflow: hidden;
+    }}
+    .shared-preview-highlight-rect {{
+      position: absolute;
+      border-radius: 3px;
+      background: rgba(69, 108, 214, 0.18);
+    }}
+    .shared-preview-highlight-rect.is-draft {{
+      background: rgba(69, 108, 214, 0.29);
     }}
     ::highlight(shared-preview-commented) {{
       background: rgba(69, 108, 214, 0.2);
@@ -1840,6 +1858,59 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         return range;
       }}
 
+      function ensureHighlightLayer() {{
+        if (!bodyEl) return null;
+        var layer = bodyEl.querySelector('[data-preview-highlight-layer]');
+        if (!layer) {{
+          layer = document.createElement('div');
+          layer.className = 'shared-preview-highlight-layer';
+          layer.setAttribute('data-preview-highlight-layer', '1');
+          bodyEl.insertBefore(layer, bodyEl.firstChild);
+        }}
+        return layer;
+      }}
+
+      function addHighlightRects(layer, range, className, baseRect) {{
+        if (!layer || !range || !baseRect) return;
+        var rects = range.getClientRects();
+        for (var i = 0; i < rects.length; i += 1) {{
+          var rect = rects[i];
+          if (!rect || rect.width < 1 || rect.height < 1) {{
+            continue;
+          }}
+          var chip = document.createElement('span');
+          chip.className = 'shared-preview-highlight-rect' + (className ? ' ' + className : '');
+          chip.style.left = String(rect.left - baseRect.left) + 'px';
+          chip.style.top = String(rect.top - baseRect.top) + 'px';
+          chip.style.width = String(rect.width) + 'px';
+          chip.style.height = String(rect.height) + 'px';
+          layer.appendChild(chip);
+        }}
+      }}
+
+      function renderHighlightOverlay(commentRanges, draftRange) {{
+        var layer = ensureHighlightLayer();
+        if (!layer || !bodyEl) return;
+        layer.innerHTML = '';
+        layer.style.minHeight = String(Math.max(bodyEl.scrollHeight, bodyEl.clientHeight, 0)) + 'px';
+
+        var bodyRect = bodyEl.getBoundingClientRect();
+        for (var i = 0; i < commentRanges.length; i += 1) {{
+          addHighlightRects(layer, commentRanges[i], '', bodyRect);
+        }}
+        if (draftRange) {{
+          addHighlightRects(layer, draftRange, 'is-draft', bodyRect);
+        }}
+      }}
+
+      function clearHighlightOverlay() {{
+        if (!bodyEl) return;
+        var layer = bodyEl.querySelector('[data-preview-highlight-layer]');
+        if (layer) {{
+          layer.innerHTML = '';
+        }}
+      }}
+
       function getCommentAnchorTop(comment) {{
         if (!layoutEl) return null;
         var startOffset = Number(comment.start_offset);
@@ -1860,42 +1931,56 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       }}
 
       function renderCommentHighlights(orderedComments) {{
-        if (!window.CSS || !window.CSS.highlights || typeof window.Highlight !== 'function') {{
+        var list = Array.isArray(orderedComments) ? orderedComments : [];
+        var commentRanges = [];
+        for (var i = 0; i < list.length; i += 1) {{
+          var comment = list[i];
+          var range = computeRangeFromOffsets(
+            Number(comment && comment.start_offset),
+            Number(comment && comment.end_offset)
+          );
+          if (range) {{
+            commentRanges.push(range);
+          }}
+        }}
+
+        var draftRange = null;
+        if (draftComment && draftComment.selection) {{
+          draftRange = computeRangeFromOffsets(
+            Number(draftComment.selection.start_offset),
+            Number(draftComment.selection.end_offset)
+          );
+        }}
+
+        var hasCssHighlightApi = !!(
+          window.CSS &&
+          window.CSS.highlights &&
+          typeof window.Highlight === 'function'
+        );
+        if (!hasCssHighlightApi) {{
+          renderHighlightOverlay(commentRanges, draftRange);
           return;
         }}
+
+        clearHighlightOverlay();
         try {{
           window.CSS.highlights.delete('shared-preview-commented');
           window.CSS.highlights.delete('shared-preview-draft');
-
-          var commentedHighlight = new window.Highlight();
-          var list = Array.isArray(orderedComments) ? orderedComments : [];
-          for (var i = 0; i < list.length; i += 1) {{
-            var comment = list[i];
-            var range = computeRangeFromOffsets(
-              Number(comment && comment.start_offset),
-              Number(comment && comment.end_offset)
-            );
-            if (range) {{
-              commentedHighlight.add(range);
+          if (commentRanges.length > 0) {{
+            var commentedHighlight = new window.Highlight();
+            for (var j = 0; j < commentRanges.length; j += 1) {{
+              commentedHighlight.add(commentRanges[j]);
             }}
-          }}
-          if (commentedHighlight.size > 0) {{
             window.CSS.highlights.set('shared-preview-commented', commentedHighlight);
           }}
-
-          if (draftComment && draftComment.selection) {{
-            var draftRange = computeRangeFromOffsets(
-              Number(draftComment.selection.start_offset),
-              Number(draftComment.selection.end_offset)
-            );
-            if (draftRange) {{
-              var draftHighlight = new window.Highlight();
-              draftHighlight.add(draftRange);
-              window.CSS.highlights.set('shared-preview-draft', draftHighlight);
-            }}
+          if (draftRange) {{
+            var draftHighlight = new window.Highlight();
+            draftHighlight.add(draftRange);
+            window.CSS.highlights.set('shared-preview-draft', draftHighlight);
           }}
         }} catch (err) {{
-          // Ignore highlight API failures (older browsers).
+          // Fallback for browsers with partial/buggy Highlight API behavior.
+          renderHighlightOverlay(commentRanges, draftRange);
         }}
       }}
 
@@ -1906,66 +1991,45 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         var minHeight = articleEl ? Math.max(articleEl.offsetHeight, 240) : 240;
         commentsLayerEl.style.minHeight = String(minHeight) + 'px';
 
-        var ordered = comments.slice().sort(function(a, b) {{
-          return Number(a.comment_id || 0) - Number(b.comment_id || 0);
+        var ordered = comments.slice().map(function(comment) {{
+          return {{
+            comment: comment,
+            anchorTop: getCommentAnchorTop(comment)
+          }};
         }});
-        renderCommentHighlights(ordered);
-        var floor = 0;
-
-        if (draftComment) {{
-          var draftQuote = collapseWhitespace(
-            draftComment.selection && draftComment.selection.quote ? draftComment.selection.quote : ''
-          );
-          var draftAnchorTop = getCommentAnchorTop(draftComment.selection || null);
-          var draftTop = floor;
-          if (draftAnchorTop !== null && Number.isFinite(draftAnchorTop)) {{
-            draftTop = Math.max(floor, draftAnchorTop - 8);
-          }}
-
-          var composeCard = document.createElement('article');
-          composeCard.className = 'shared-preview-comment-card shared-preview-comment-compose';
-          composeCard.style.top = String(Math.round(draftTop)) + 'px';
-          composeCard.innerHTML =
-            '<div class="shared-preview-comment-meta-row">' +
-              '<p class="shared-preview-comment-meta">' + escapeHtml(currentCommenterName()) + ' \u00b7 new comment</p>' +
-            '</div>' +
-            (draftQuote ? '<p class="shared-preview-comment-quote">\u201c' + escapeHtml(draftQuote) + '\u201d</p>' : '') +
-            '<textarea data-compose-input placeholder="Type your comment..."></textarea>' +
-            '<div class="shared-preview-comment-compose-actions">' +
-              '<button type="button" data-comment-save>' + (draftComment.saving ? 'Saving...' : 'Save comment') + '</button>' +
-              '<button type="button" data-comment-cancel>Cancel</button>' +
-            '</div>' +
-            '<p class="shared-preview-comment-compose-error">' +
-              escapeHtml(draftComment.error || '') +
-            '</p>';
-
-          commentsLayerEl.appendChild(composeCard);
-          floor = draftTop + composeCard.offsetHeight + 12;
-
-          var composeTextarea = composeCard.querySelector('[data-compose-input]');
-          var saveBtn = composeCard.querySelector('[data-comment-save]');
-          if (composeTextarea) {{
-            composeTextarea.value = draftComment.text || '';
-            composeTextarea.disabled = !!draftComment.saving;
-            if (draftComment.needsFocus && !draftComment.saving) {{
-              composeTextarea.focus();
-              composeTextarea.setSelectionRange(composeTextarea.value.length, composeTextarea.value.length);
-              draftComment.needsFocus = false;
+        ordered.sort(function(a, b) {{
+          var aTop = a.anchorTop;
+          var bTop = b.anchorTop;
+          var aHasTop = aTop !== null && Number.isFinite(aTop);
+          var bHasTop = bTop !== null && Number.isFinite(bTop);
+          if (aHasTop && bHasTop) {{
+            if (Math.abs(aTop - bTop) > 0.5) {{
+              return aTop - bTop;
             }}
+          }} else if (aHasTop) {{
+            return -1;
+          }} else if (bHasTop) {{
+            return 1;
           }}
-          if (saveBtn && draftComment.saving) {{
-            saveBtn.disabled = true;
-          }}
-        }}
+          return Number((a.comment && a.comment.comment_id) || 0) - Number((b.comment && b.comment.comment_id) || 0);
+        }});
 
-        if ((!ordered || ordered.length < 1) && !draftComment) {{
+        var orderedComments = ordered.map(function(entry) {{
+          return entry.comment;
+        }});
+        renderCommentHighlights(orderedComments);
+        var floor = 0;
+        var draftComposeBottom = 0;
+
+        if ((!orderedComments || orderedComments.length < 1) && !draftComment) {{
           if (commentsEmptyEl) commentsEmptyEl.style.display = 'block';
         }} else if (commentsEmptyEl) {{
           commentsEmptyEl.style.display = 'none';
         }}
 
         for (var idx = 0; idx < ordered.length; idx += 1) {{
-          var comment = ordered[idx];
+          var entry = ordered[idx];
+          var comment = entry.comment;
           var createdLabel = formatDateTimeLabel(comment.created_at || '');
           var commenter = collapseWhitespace(comment.commenter || '') || 'Anonymous';
           var quote = collapseWhitespace(comment.quote || '');
@@ -2008,7 +2072,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             );
 
           var top = floor;
-          var anchorTop = getCommentAnchorTop(comment);
+          var anchorTop = entry.anchorTop;
           if (anchorTop !== null && Number.isFinite(anchorTop)) {{
             top = Math.max(floor, anchorTop - 8);
           }}
@@ -2017,7 +2081,59 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           floor = top + card.offsetHeight + 12;
         }}
 
-        var targetHeight = Math.max(minHeight, floor + 10);
+        if (draftComment) {{
+          var draftQuote = collapseWhitespace(
+            draftComment.selection && draftComment.selection.quote ? draftComment.selection.quote : ''
+          );
+          var draftAnchorTop = getCommentAnchorTop(draftComment.selection || null);
+          var draftTop = floor;
+          if (draftAnchorTop !== null && Number.isFinite(draftAnchorTop)) {{
+            draftTop = Math.max(0, draftAnchorTop - 8);
+          }}
+
+          var composeCard = document.createElement('article');
+          composeCard.className = 'shared-preview-comment-card shared-preview-comment-compose';
+          composeCard.style.top = String(Math.round(draftTop)) + 'px';
+          composeCard.innerHTML =
+            '<div class="shared-preview-comment-meta-row">' +
+              '<p class="shared-preview-comment-meta">' + escapeHtml(currentCommenterName()) + ' \u00b7 new comment</p>' +
+            '</div>' +
+            (draftQuote ? '<p class="shared-preview-comment-quote">\u201c' + escapeHtml(draftQuote) + '\u201d</p>' : '') +
+            '<textarea data-compose-input placeholder="Type your comment..."></textarea>' +
+            '<div class="shared-preview-comment-compose-actions">' +
+              '<button type="button" data-comment-save>' + (draftComment.saving ? 'Saving...' : 'Save comment') + '</button>' +
+              '<button type="button" data-comment-cancel>Cancel</button>' +
+            '</div>' +
+            '<p class="shared-preview-comment-compose-error">' +
+              escapeHtml(draftComment.error || '') +
+            '</p>';
+
+          commentsLayerEl.appendChild(composeCard);
+          draftComposeBottom = draftTop + composeCard.offsetHeight + 12;
+
+          var composeTextarea = composeCard.querySelector('[data-compose-input]');
+          var saveBtn = composeCard.querySelector('[data-comment-save]');
+          if (composeTextarea) {{
+            composeTextarea.value = draftComment.text || '';
+            composeTextarea.disabled = !!draftComment.saving;
+            composeTextarea.addEventListener('keydown', function(event) {{
+              if (!isCommentSaveShortcut(event)) return;
+              event.preventDefault();
+              event.stopPropagation();
+              saveInlineCommentDraft();
+            }});
+            if (draftComment.needsFocus && !draftComment.saving) {{
+              composeTextarea.focus();
+              composeTextarea.setSelectionRange(composeTextarea.value.length, composeTextarea.value.length);
+              draftComment.needsFocus = false;
+            }}
+          }}
+          if (saveBtn && draftComment.saving) {{
+            saveBtn.disabled = true;
+          }}
+        }}
+
+        var targetHeight = Math.max(minHeight, floor + 10, draftComposeBottom + 10);
         commentsLayerEl.style.minHeight = String(targetHeight) + 'px';
       }}
 
@@ -2198,6 +2314,21 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           }});
       }}
 
+      function isCommentSaveShortcut(event) {{
+        if (!event) return false;
+        var key = String(event.key || '').toLowerCase();
+        var keyCode = Number(event.keyCode || event.which || 0);
+        if (key) {{
+          if (key !== 'enter' && key !== 'return') return false;
+        }} else if (keyCode) {{
+          if (keyCode !== 13) return false;
+        }} else {{
+          return false;
+        }}
+        if (event.altKey) return false;
+        return !!(event.metaKey || event.ctrlKey);
+      }}
+
       function refreshSelectionAction() {{
         if (!previewId) return;
         var selection = getSelectionPayload();
@@ -2255,6 +2386,16 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             : null;
           if (!inputEl || !draftComment) return;
           draftComment.text = String(inputEl.value || '');
+        }});
+        commentsLayerEl.addEventListener('keydown', function(event) {{
+          var inputEl = event.target && event.target.closest
+            ? event.target.closest('[data-compose-input]')
+            : null;
+          if (!inputEl) return;
+          if (!isCommentSaveShortcut(event)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          saveInlineCommentDraft();
         }});
         commentsLayerEl.addEventListener('click', function(event) {{
           var target = event.target && event.target.closest
