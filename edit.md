@@ -89,6 +89,7 @@ sitemap: false
           <div class="blog-editor-meta-actions">
             <button type="button" data-editor-save>Save</button>
             <button type="button" data-editor-open-preview>Preview</button>
+            <button type="button" data-editor-share-preview>Share</button>
             <button type="button" data-editor-publish>Publish</button>
           </div>
         </div>
@@ -160,6 +161,7 @@ sitemap: false
     const previewEl = shell.querySelector('[data-editor-preview]');
     const saveBtn = shell.querySelector('[data-editor-save]');
     const fullPreviewBtn = shell.querySelector('[data-editor-open-preview]');
+    const sharePreviewBtn = shell.querySelector('[data-editor-share-preview]');
     const publishBtn = shell.querySelector('[data-editor-publish]');
     const saveButtonDefaultLabel = saveBtn ? (saveBtn.textContent || 'Save') : 'Save';
 
@@ -1308,6 +1310,64 @@ sitemap: false
       }
     }
 
+    async function copyTextToClipboard(text) {
+      if (!text) return false;
+      if (!navigator || !navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+        return false;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    async function createSharedPreviewLink() {
+      if (!hasDraftApiConfigured()) {
+        setStatus('Share links require Draft DB API configuration.', 'error');
+        return false;
+      }
+
+      const built = buildPostContent(true);
+      const payload = {
+        title: built.title,
+        date: built.date,
+        body: bodyInput.value,
+        source_draft_id: state.currentDraftId
+      };
+
+      const response = await apiRequest(
+        '/api/previews',
+        { method: 'POST', body: JSON.stringify(payload) },
+        true
+      );
+      if (response === null) {
+        setStatus('Authentication is required to create a share link.', 'error');
+        return false;
+      }
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+
+      const result = await response.json();
+      const previewUrl = result && typeof result.preview_url === 'string'
+        ? result.preview_url.trim()
+        : '';
+      if (!previewUrl) {
+        throw new Error('Preview link was not returned by server.');
+      }
+
+      const copied = await copyTextToClipboard(previewUrl);
+      if (copied) {
+        setStatus('Share link copied to clipboard.', 'success');
+      } else {
+        setStatus('Share link created.', 'success');
+      }
+      window.prompt('Share this draft preview link', previewUrl);
+      return true;
+    }
+
     function hexToBytes(hex) {
       if (!hex || hex.length % 2 !== 0) throw new Error('Invalid KDF salt.');
       const bytes = new Uint8Array(hex.length / 2);
@@ -1693,6 +1753,16 @@ sitemap: false
     if (fullPreviewBtn) {
       fullPreviewBtn.addEventListener('click', function() {
         openFullPagePreview();
+      });
+    }
+
+    if (sharePreviewBtn) {
+      sharePreviewBtn.addEventListener('click', async function() {
+        try {
+          await createSharedPreviewLink();
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to create share link.', 'error');
+        }
       });
     }
 

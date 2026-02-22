@@ -58,6 +58,12 @@ GitHub publish variables:
 - `DRAFT_DB_GITHUB_BRANCH` (default: `master`)
 - `DRAFT_DB_GITHUB_TIMEOUT_SECONDS` (default: `20`)
 
+Shared preview variables:
+
+- `DRAFT_DB_PREVIEW_BASE_URL` (optional absolute base URL used in generated share links; defaults to request host)
+- `DRAFT_DB_PREVIEW_SITE_BASE` (default: `https://ypatel.io`; used for CSS assets in preview pages)
+- `DRAFT_DB_PREVIEW_TTL_SECONDS` (default: `1209600`, 14 days)
+
 ## Deploying Remotely
 
 Any host that can run Python works (Fly.io, Railway, Render, VPS, etc.).
@@ -85,6 +91,8 @@ Requirements:
 - `GET /api/posts` (Bearer token)
 - `GET /api/posts/<filename>.md` (Bearer token)
 - `POST /api/publish` (Bearer token)
+- `POST /api/previews` (Bearer token, create shareable preview link)
+- `GET /preview/<preview_id>` (public, read-only shared preview page)
 
 `PUT` payload fields:
 

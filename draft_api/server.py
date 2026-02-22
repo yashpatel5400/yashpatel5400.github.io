@@ -10,6 +10,7 @@ import hmac
 import json
 import os
 import re
+import secrets
 import sqlite3
 import threading
 import time
@@ -24,7 +25,9 @@ from typing import Any
 MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.md$")
+PREVIEW_ID_RE = re.compile(r"^[A-Za-z0-9_-]{16,120}$")
 DEFAULT_AUTOSAVE_HISTORY_LIMIT = 250
+DEFAULT_PREVIEW_TTL_SECONDS = 14 * 24 * 60 * 60
 
 
 def now_utc_iso() -> str:
@@ -33,6 +36,10 @@ def now_utc_iso() -> str:
 
 def today_utc_date() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def epoch_utc_iso(ts: int) -> str:
+    return datetime.fromtimestamp(int(ts), timezone.utc).isoformat()
 
 
 def b64url_encode(data: bytes) -> str:
@@ -162,6 +169,24 @@ class DraftStore:
                 """
                 CREATE INDEX IF NOT EXISTS idx_draft_autosaves_draft_saved
                 ON draft_autosaves (draft_id, autosave_id DESC)
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS shared_previews (
+                  preview_id TEXT PRIMARY KEY,
+                  title TEXT NOT NULL DEFAULT '',
+                  post_date TEXT NOT NULL DEFAULT '',
+                  body TEXT NOT NULL DEFAULT '',
+                  created_at TEXT NOT NULL,
+                  expires_at INTEGER NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_shared_previews_expires
+                ON shared_previews (expires_at)
                 """
             )
 
@@ -442,6 +467,74 @@ class DraftStore:
             )
             self._conn.commit()
         return deleted > 0
+
+    def _purge_expired_previews_locked(self, now_ts: int | None = None) -> None:
+        cutoff = int(now_ts if now_ts is not None else time.time())
+        self._conn.execute("DELETE FROM shared_previews WHERE expires_at <= ?", (cutoff,))
+
+    def create_shared_preview(
+        self,
+        payload: dict[str, Any],
+        ttl_seconds: int = DEFAULT_PREVIEW_TTL_SECONDS,
+    ) -> dict[str, Any]:
+        title = str(payload.get("title", "")).strip() or "Untitled Draft"
+        post_date = str(payload.get("date", "")).strip() or today_utc_date()
+        if not DATE_RE.match(post_date):
+            post_date = today_utc_date()
+        body = str(payload.get("body", ""))
+        created_at = now_utc_iso()
+        expires_at = int(time.time()) + max(3600, int(ttl_seconds))
+
+        preview_id = ""
+        with self._lock:
+            self._purge_expired_previews_locked()
+            for _ in range(8):
+                candidate = secrets.token_urlsafe(18)
+                try:
+                    self._conn.execute(
+                        """
+                        INSERT INTO shared_previews (
+                          preview_id, title, post_date, body, created_at, expires_at
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (candidate, title, post_date, body, created_at, expires_at),
+                    )
+                    preview_id = candidate
+                    break
+                except sqlite3.IntegrityError:
+                    continue
+            if not preview_id:
+                raise RuntimeError("Unable to allocate preview id.")
+            self._conn.commit()
+
+        return {
+            "preview_id": preview_id,
+            "title": title,
+            "date": post_date,
+            "body": body,
+            "created_at": created_at,
+            "expires_at": epoch_utc_iso(expires_at),
+        }
+
+    def get_shared_preview(self, preview_id: str) -> dict[str, Any] | None:
+        now_ts = int(time.time())
+        with self._lock:
+            self._purge_expired_previews_locked(now_ts)
+            row = self._conn.execute(
+                """
+                SELECT preview_id, title, post_date AS date, body, created_at, expires_at
+                FROM shared_previews
+                WHERE preview_id = ? AND expires_at > ?
+                """,
+                (preview_id, now_ts),
+            ).fetchone()
+            self._conn.commit()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["expires_at"] = epoch_utc_iso(int(payload.get("expires_at", now_ts)))
+        return payload
 
 
 class GitHubPublisher:
@@ -804,12 +897,18 @@ class DraftApiServer(ThreadingHTTPServer):
         auth_manager: AuthManager,
         allowed_origins: set[str],
         publisher: GitHubPublisher,
+        preview_base_url: str,
+        preview_site_base: str,
+        preview_ttl_seconds: int,
     ) -> None:
         super().__init__(server_address, handler_class)
         self.store = store
         self.auth_manager = auth_manager
         self.allowed_origins = allowed_origins
         self.publisher = publisher
+        self.preview_base_url = preview_base_url.strip().rstrip("/")
+        self.preview_site_base = preview_site_base.strip().rstrip("/")
+        self.preview_ttl_seconds = max(3600, int(preview_ttl_seconds))
 
 
 class DraftApiHandler(BaseHTTPRequestHandler):
@@ -835,6 +934,16 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
+
+    def _send_html(self, status: int, html_content: str, origin: str | None = None) -> None:
+        body = html_content.encode("utf-8")
+        self.send_response(status)
+        self._set_cors_headers(origin)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _resolve_allowed_origin(self, origin: str | None) -> str | None:
         allowed = self.server.allowed_origins
@@ -888,6 +997,179 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             return None
         return filename
 
+    def _preview_id_from_path(self) -> str | None:
+        parsed = urllib.parse.urlparse(self.path)
+        prefix = "/preview/"
+        if not parsed.path.startswith(prefix):
+            return None
+        preview_id = urllib.parse.unquote(parsed.path[len(prefix) :].strip())
+        if not preview_id or "/" in preview_id or not PREVIEW_ID_RE.match(preview_id):
+            return None
+        return preview_id
+
+    def _request_base_url(self) -> str:
+        proto = (self.headers.get("X-Forwarded-Proto") or "http").split(",")[0].strip() or "http"
+        host = (self.headers.get("Host") or "").strip()
+        if not host:
+            server_host, server_port = self.server.server_address
+            host = f"{server_host}:{server_port}"
+        return f"{proto}://{host}"
+
+    def _resolved_preview_base_url(self) -> str:
+        configured = self.server.preview_base_url
+        if configured:
+            return configured
+        return self._request_base_url().rstrip("/")
+
+    def _render_shared_preview_page(self, preview: dict[str, Any]) -> str:
+        title = str(preview.get("title", "")).strip() or "Untitled Draft"
+        post_date = str(preview.get("date", "")).strip()
+        body = str(preview.get("body", ""))
+        site_base = self.server.preview_site_base or "https://ypatel.io"
+        site_base = site_base.rstrip("/")
+        payload_json = json.dumps(
+            {"title": title, "date": post_date, "body": body},
+            ensure_ascii=False,
+        ).replace("</", "<\\/")
+        escaped_title = (
+            title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        )
+
+        return f"""<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escaped_title} (Shared Preview)</title>
+  <link rel="stylesheet" href="{site_base}/assets/css/style.css">
+  <link rel="stylesheet" href="{site_base}/static/css/custom.css">
+  <style>
+    .post-preview-banner {{
+      max-width: 720px;
+      margin: 0 auto 0.8rem;
+      border: 1px solid #d6e2f5;
+      border-radius: 10px;
+      background: #f4f8ff;
+      color: #35557f;
+      padding: 0.6rem 0.75rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.85rem;
+    }}
+  </style>
+</head>
+<body class="blog-standalone">
+  <div class="wrapper">
+    <section>
+      <p class="post-preview-banner">Shared draft preview. This page is read-only and not indexed.</p>
+      <article class="post-article">
+        <p class="post-breadcrumb"><a href="{site_base}/blog/">&larr; Back to Blog</a></p>
+        <h2 class="post-title">{escaped_title}</h2>
+        <p class="post-date" id="preview-post-date"></p>
+        <div class="post-content" id="preview-post-body"></div>
+      </article>
+    </section>
+  </div>
+  <script id="preview-payload" type="application/json">{payload_json}</script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script>
+    (function() {{
+      function escapeHtml(text) {{
+        return String(text || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }}
+      function formatDateLabel(dateString) {{
+        if (!dateString) return '';
+        var parsed = new Date(dateString + 'T00:00:00');
+        if (Number.isNaN(parsed.getTime())) return dateString;
+        return parsed.toLocaleDateString(undefined, {{
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }});
+      }}
+      function renderMarkdown(raw) {{
+        var text = String(raw || '');
+        if (window.marked && typeof window.marked.parse === 'function') {{
+          var parsed = window.marked.parse(text, {{
+            gfm: true,
+            breaks: true,
+            mangle: false,
+            headerIds: true
+          }});
+          if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {{
+            return window.DOMPurify.sanitize(parsed, {{ USE_PROFILES: {{ html: true }} }});
+          }}
+          return parsed;
+        }}
+        return '<pre>' + escapeHtml(text) + '</pre>';
+      }}
+
+      var payloadEl = document.getElementById('preview-payload');
+      var payload = {{}};
+      try {{
+        payload = JSON.parse(payloadEl && payloadEl.textContent ? payloadEl.textContent : '{{}}');
+      }} catch (err) {{
+        payload = {{}};
+      }}
+
+      var dateEl = document.getElementById('preview-post-date');
+      var bodyEl = document.getElementById('preview-post-body');
+      if (dateEl) {{
+        dateEl.textContent = formatDateLabel(payload.date || '');
+      }}
+      if (bodyEl) {{
+        var bodyHtml = payload.body
+          ? renderMarkdown(payload.body)
+          : '<p class="blog-editor-preview-empty">No content yet.</p>';
+        bodyEl.innerHTML = bodyHtml;
+      }}
+    }})();
+  </script>
+  <script>
+    window.MathJax = {{
+      tex: {{
+        inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+        displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+        processEscapes: true
+      }},
+      options: {{
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }}
+    }};
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</body>
+</html>
+"""
+
+    def _render_preview_not_found_page(self) -> str:
+        site_base = self.server.preview_site_base or "https://ypatel.io"
+        site_base = site_base.rstrip("/")
+        return f"""<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preview not found</title>
+  <link rel="stylesheet" href="{site_base}/assets/css/style.css">
+  <link rel="stylesheet" href="{site_base}/static/css/custom.css">
+</head>
+<body class="blog-standalone">
+  <div class="wrapper">
+    <section>
+      <article class="post-article">
+        <h2 class="post-title">Preview Not Available</h2>
+        <p class="post-content">This preview link is invalid or has expired.</p>
+      </article>
+    </section>
+  </div>
+</body>
+</html>
+"""
+
     def _draft_autosave_path(self) -> tuple[str, int | None] | None:
         parsed = urllib.parse.urlparse(self.path)
         prefix = "/api/drafts/"
@@ -920,6 +1202,15 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         origin = self.headers.get("Origin")
         parsed = urllib.parse.urlparse(self.path)
+
+        preview_id = self._preview_id_from_path()
+        if preview_id is not None:
+            preview = self.server.store.get_shared_preview(preview_id)
+            if preview is None:
+                self._send_html(404, self._render_preview_not_found_page(), origin)
+                return
+            self._send_html(200, self._render_shared_preview_page(preview), origin)
+            return
 
         if parsed.path == "/health":
             self._send_json(
@@ -1147,6 +1438,30 @@ class DraftApiHandler(BaseHTTPRequestHandler):
                 self._send_json(502, {"error": str(exc)}, origin)
             return
 
+        if parsed.path == "/api/previews":
+            if not self._authorized():
+                self._send_json(401, {"error": "Unauthorized"}, origin)
+                return
+            try:
+                payload = self._read_json()
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(400, {"error": f"Invalid JSON payload: {exc}"}, origin)
+                return
+            try:
+                preview = self.server.store.create_shared_preview(
+                    payload,
+                    ttl_seconds=self.server.preview_ttl_seconds,
+                )
+                preview_url = (
+                    self._resolved_preview_base_url()
+                    + "/preview/"
+                    + urllib.parse.quote(str(preview.get("preview_id", "")))
+                )
+                self._send_json(200, {"preview": preview, "preview_url": preview_url}, origin)
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(500, {"error": str(exc)}, origin)
+            return
+
         self._send_json(404, {"error": "Not found"}, origin)
 
     def do_PUT(self) -> None:
@@ -1268,6 +1583,11 @@ def main() -> None:
     github_repo = os.getenv("DRAFT_DB_GITHUB_REPO", "").strip()
     github_branch = os.getenv("DRAFT_DB_GITHUB_BRANCH", "master").strip() or "master"
     github_timeout_seconds = int(os.getenv("DRAFT_DB_GITHUB_TIMEOUT_SECONDS", "20"))
+    preview_base_url = os.getenv("DRAFT_DB_PREVIEW_BASE_URL", "").strip()
+    preview_site_base = os.getenv("DRAFT_DB_PREVIEW_SITE_BASE", "https://ypatel.io").strip() or "https://ypatel.io"
+    preview_ttl_seconds = int(
+        os.getenv("DRAFT_DB_PREVIEW_TTL_SECONDS", str(DEFAULT_PREVIEW_TTL_SECONDS))
+    )
     if bool(github_token) ^ bool(github_repo):
         raise SystemExit("Set both DRAFT_DB_GITHUB_TOKEN and DRAFT_DB_GITHUB_REPO, or set neither.")
     publisher = GitHubPublisher(
@@ -1289,11 +1609,15 @@ def main() -> None:
         auth_manager,
         allowed_origins,
         publisher,
+        preview_base_url,
+        preview_site_base,
+        preview_ttl_seconds,
     )
     print(
         f"Draft API listening on http://{args.host}:{args.port} "
         f"(db={db_path}, origins={sorted(allowed_origins)}, session_auth={auth_manager.supports_session}, "
-        f"github_publish={publisher.configured}, github_repo={publisher.repo}, github_branch={publisher.branch})"
+        f"github_publish={publisher.configured}, github_repo={publisher.repo}, github_branch={publisher.branch}, "
+        f"preview_base_url={preview_base_url or 'auto'}, preview_ttl_seconds={preview_ttl_seconds})"
     )
     server.serve_forever()
 
