@@ -736,6 +736,9 @@ sitemap: false
 
       state.posts.forEach(function(post) {
         const li = document.createElement('li');
+        const row = document.createElement('div');
+        row.className = 'blog-editor-entity-row';
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'blog-editor-entity-btn';
@@ -751,7 +754,17 @@ sitemap: false
           '<span class="blog-editor-entity-title">' + escapeHtml(title) + '</span>' +
           '<span class="blog-editor-entity-meta">' + escapeHtml(dateLabel) + '</span>';
 
-        li.appendChild(btn);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'blog-editor-entity-delete';
+        deleteBtn.setAttribute('data-delete-post-filename', post.filename || '');
+        deleteBtn.setAttribute('aria-label', 'Delete published post "' + title + '"');
+        deleteBtn.textContent = '🗑️';
+        deleteBtn.disabled = !post.filename;
+
+        row.appendChild(btn);
+        row.appendChild(deleteBtn);
+        li.appendChild(row);
         postListEl.appendChild(li);
       });
     }
@@ -840,6 +853,35 @@ sitemap: false
       }
       state.drafts = state.drafts.filter(function(item) {
         return item && item.draft_id !== draftId;
+      });
+      renderDraftList();
+      return true;
+    }
+
+    async function deletePublishedPostRemote(filename, promptForToken) {
+      if (!filename || !hasDraftApiConfigured()) return false;
+      const response = await apiRequest(
+        '/api/posts/' + encodeURIComponent(filename),
+        { method: 'DELETE' },
+        promptForToken
+      );
+      if (response === null) return false;
+      if (response.status === 404) return false;
+      if (!response.ok) {
+        throw new Error(await parseErrorMessage(response));
+      }
+
+      state.posts = state.posts.filter(function(item) {
+        return item && item.filename !== filename;
+      });
+      if (state.sourcePostFilename === filename) {
+        state.sourcePostFilename = '';
+      }
+      renderPostList();
+      updateContextLabel();
+
+      await fetchDraftList(false).catch(function() {
+        // no-op
       });
       renderDraftList();
       return true;
@@ -1520,6 +1562,29 @@ sitemap: false
 
     if (postListEl) {
       postListEl.addEventListener('click', async function(event) {
+        const deleteTarget = event.target && event.target.closest('[data-delete-post-filename]');
+        if (deleteTarget) {
+          const filenameToDelete = (deleteTarget.getAttribute('data-delete-post-filename') || '').trim();
+          if (!filenameToDelete) return;
+          const selectedPost = state.posts.find(function(item) {
+            return item && item.filename === filenameToDelete;
+          });
+          const label = selectedPost && selectedPost.title ? selectedPost.title : filenameToDelete;
+          const confirmed = window.confirm('Delete published post "' + label + '"? This removes it from /blog/.');
+          if (!confirmed) return;
+          try {
+            const deleted = await deletePublishedPostRemote(filenameToDelete, true);
+            if (!deleted) {
+              setStatus('Published post not found.', 'error');
+              return;
+            }
+            setStatus('Published post deleted.', 'success');
+          } catch (err) {
+            setStatus(err && err.message ? err.message : 'Unable to delete published post.', 'error');
+          }
+          return;
+        }
+
         const target = event.target && event.target.closest('[data-post-filename]');
         if (!target) return;
         const filename = (target.getAttribute('data-post-filename') || '').trim();

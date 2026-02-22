@@ -803,6 +803,11 @@
   background: #edf4ff;
 }
 
+.make-post-editor .blog-editor-entity-delete:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .make-post-editor .blog-editor-meta-field {
   min-width: 0;
 }

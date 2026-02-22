@@ -430,6 +430,19 @@ class DraftStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def delete_cached_published_post(self, filename: str) -> bool:
+        with self._lock:
+            deleted = self._conn.execute(
+                "DELETE FROM published_posts WHERE filename = ?",
+                (filename,),
+            ).rowcount
+            self._conn.execute(
+                "UPDATE drafts SET source_post_filename = '' WHERE source_post_filename = ?",
+                (filename,),
+            )
+            self._conn.commit()
+        return deleted > 0
+
 
 class GitHubPublisher:
     def __init__(self, token: str, repo: str, branch: str, timeout_seconds: int) -> None:
@@ -637,6 +650,37 @@ class GitHubPublisher:
             "sha": resolved_sha,
             "html_url": html_url,
         }
+
+    def delete_post(self, filename: str) -> bool:
+        if not self.configured:
+            raise RuntimeError("GitHub publishing is not configured.")
+        if not SAFE_FILENAME_RE.match(filename):
+            raise RuntimeError("Invalid post filename.")
+
+        repo_path = f"_posts/{filename}"
+        existing = self._read_file(repo_path)
+        if existing is None:
+            return False
+
+        existing_sha = str(existing.get("sha", "")).strip()
+        if not existing_sha:
+            raise RuntimeError("Unable to delete post because GitHub SHA is missing.")
+
+        payload: dict[str, Any] = {
+            "message": f"Delete post: {filename}",
+            "sha": existing_sha,
+            "branch": self.branch,
+        }
+        status, response_payload = self._json_request(
+            "DELETE",
+            f"/repos/{self.repo}/contents/{urllib.parse.quote(repo_path, safe='/')}",
+            payload=payload,
+        )
+        if status == 404:
+            return False
+        if status not in (200, 202) or not isinstance(response_payload, dict):
+            raise RuntimeError(self._github_error(status, response_payload))
+        return True
 
 
 class AuthManager:
@@ -1127,6 +1171,29 @@ class DraftApiHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         origin = self.headers.get("Origin")
+        filename = self._post_filename_from_path()
+        if filename is not None:
+            if not self._authorized():
+                self._send_json(401, {"error": "Unauthorized"}, origin)
+                return
+            if not self.server.publisher.configured:
+                self._send_json(503, {"error": "GitHub publishing is not configured."}, origin)
+                return
+            try:
+                deleted_remote = self.server.publisher.delete_post(filename)
+                deleted_cached = self.server.store.delete_cached_published_post(filename)
+                if not deleted_remote and not deleted_cached:
+                    self._send_json(404, {"error": "Post not found"}, origin)
+                    return
+                self._send_json(
+                    200,
+                    {"ok": True, "filename": filename, "deleted_remote": deleted_remote},
+                    origin,
+                )
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(502, {"error": str(exc)}, origin)
+            return
+
         draft_id = self._draft_id_from_path()
         if draft_id is None:
             self._send_json(404, {"error": "Not found"}, origin)
