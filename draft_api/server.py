@@ -597,23 +597,41 @@ class DraftStore:
                 (preview_id, max(1, min(MAX_PREVIEW_COMMENTS_PER_LINK, int(limit)))),
             ).fetchall()
             self._conn.commit()
-        return [dict(row) for row in rows]
+        payload: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            start_offset = int(item.get("start_offset", 0) or 0)
+            end_offset = int(item.get("end_offset", 0) or 0)
+            quote = str(item.get("quote", "") or "").strip()
+            is_global = end_offset <= start_offset or not quote
+            item["comment_type"] = "global" if is_global else "inline"
+            item["is_global"] = bool(is_global)
+            payload.append(item)
+        return payload
 
     def create_shared_preview_comment(
         self,
         preview_id: str,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
-        start_offset = int(payload.get("start_offset", -1))
-        end_offset = int(payload.get("end_offset", -1))
-        if start_offset < 0 or end_offset <= start_offset:
-            raise ValueError("Invalid highlighted text range.")
+        comment_type = str(payload.get("comment_type", "")).strip().lower()
+        is_global = bool(payload.get("is_global", False)) or comment_type == "global"
 
-        quote = str(payload.get("quote", "")).strip()
-        if not quote:
-            raise ValueError("Highlighted quote is required.")
-        if len(quote) > MAX_PREVIEW_QUOTE_LENGTH:
-            quote = quote[:MAX_PREVIEW_QUOTE_LENGTH].rstrip()
+        if is_global:
+            start_offset = 0
+            end_offset = 0
+            quote = ""
+        else:
+            start_offset = int(payload.get("start_offset", -1))
+            end_offset = int(payload.get("end_offset", -1))
+            if start_offset < 0 or end_offset <= start_offset:
+                raise ValueError("Invalid highlighted text range.")
+
+            quote = str(payload.get("quote", "")).strip()
+            if not quote:
+                raise ValueError("Highlighted quote is required.")
+            if len(quote) > MAX_PREVIEW_QUOTE_LENGTH:
+                quote = quote[:MAX_PREVIEW_QUOTE_LENGTH].rstrip()
 
         commenter = str(payload.get("commenter", "")).strip() or "Anonymous"
         if len(commenter) > MAX_PREVIEW_COMMENTER_LENGTH:
@@ -686,6 +704,8 @@ class DraftStore:
             "start_offset": start_offset,
             "end_offset": end_offset,
             "quote": quote,
+            "comment_type": "global" if is_global else "inline",
+            "is_global": bool(is_global),
             "commenter": commenter,
             "comment": comment_text,
             "created_at": created_at,
@@ -1513,6 +1533,90 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       font-size: 0.78rem;
       font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
     }}
+    .shared-preview-global-comments {{
+      margin-top: 1.7rem;
+      padding-top: 1rem;
+      border-top: 1px solid #dde3ef;
+    }}
+    .shared-preview-global-comments h3 {{
+      margin: 0 0 0.6rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.96rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #53627b;
+    }}
+    .shared-preview-global-comments-list {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.6rem;
+      margin: 0 0 0.7rem;
+    }}
+    .shared-preview-global-comments-empty {{
+      margin: 0 0 0.7rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.9rem;
+      color: #6b7788;
+    }}
+    .shared-preview-global-comment-card {{
+      position: relative;
+      border: 1px solid #d4dcec;
+      border-radius: 12px;
+      background: #f8faff;
+      box-shadow: 0 8px 18px rgba(29, 52, 84, 0.06);
+      padding: 0.65rem 0.7rem;
+    }}
+    .shared-preview-global-compose textarea {{
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      min-height: 90px;
+      resize: vertical;
+      border: 1px solid #cbd6eb;
+      border-radius: 8px;
+      background: #fff;
+      color: #111827;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      padding: 0.5rem 0.55rem;
+      margin: 0 0 0.55rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+    }}
+    .shared-preview-global-compose textarea:focus {{
+      outline: none;
+      border-color: #3e6ddd;
+      box-shadow: 0 0 0 3px rgba(76, 114, 211, 0.2);
+    }}
+    .shared-preview-global-compose-actions {{
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin: 0 0 0.2rem;
+    }}
+    .shared-preview-global-compose-actions button {{
+      border: 0;
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      background: #2f5bd3;
+      color: #fff;
+    }}
+    .shared-preview-global-compose-actions button[disabled] {{
+      opacity: 0.72;
+      cursor: default;
+    }}
+    .shared-preview-global-compose-error {{
+      margin: 0;
+      min-height: 1.1rem;
+      color: #c23a3a;
+      font-size: 0.78rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+    }}
     .shared-preview-comment-trigger {{
       position: fixed;
       z-index: 3000;
@@ -1585,7 +1689,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
 <body class="blog-standalone">
   <div class="wrapper shared-preview-wrapper">
     <section>
-      <p class="post-preview-banner">Shared draft preview. Highlight text and click <strong>Leave a comment</strong>.</p>
+      <p class="post-preview-banner">Shared draft preview. Highlight text and click <strong>Leave a comment</strong>, or leave a global comment below.</p>
       <div class="shared-preview-layout" id="preview-layout">
         <article class="post-article" id="preview-article">
           <div class="shared-preview-identity">
@@ -1596,10 +1700,22 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           <h2 class="post-title">{escaped_title}</h2>
           <p class="post-date" id="preview-post-date"></p>
           <div class="post-content" id="preview-post-body"></div>
+          <section class="shared-preview-global-comments" id="preview-global-comments">
+            <h3>Global Comments</h3>
+            <div class="shared-preview-global-comments-list" id="preview-global-comments-list"></div>
+            <p class="shared-preview-global-comments-empty" id="preview-global-comments-empty">No global comments yet.</p>
+            <div class="shared-preview-global-compose">
+              <textarea id="preview-global-comment-input" placeholder="Leave a global comment..."></textarea>
+              <div class="shared-preview-global-compose-actions">
+                <button type="button" id="preview-global-comment-save">Save comment</button>
+              </div>
+              <p class="shared-preview-global-compose-error" id="preview-global-comment-error"></p>
+            </div>
+          </section>
         </article>
         <aside class="shared-preview-comments-rail">
           <div class="shared-preview-comments-layer" id="preview-comments-layer"></div>
-          <p class="shared-preview-comments-empty" id="preview-comments-empty">No comments yet. Select text to leave one.</p>
+          <p class="shared-preview-comments-empty" id="preview-comments-empty">No inline comments yet. Select text to leave one.</p>
         </aside>
       </div>
     </section>
@@ -1656,6 +1772,19 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       }}
       function collapseWhitespace(text) {{
         return String(text || '').replace(/\\s+/g, ' ').trim();
+      }}
+      function isGlobalComment(comment) {{
+        if (!comment || typeof comment !== 'object') return false;
+        if (comment.is_global === true) return true;
+        var commentType = String(comment.comment_type || '').toLowerCase();
+        if (commentType === 'global') return true;
+        var startOffset = Number(comment.start_offset);
+        var endOffset = Number(comment.end_offset);
+        var quote = collapseWhitespace(comment.quote || '');
+        if (Number.isFinite(startOffset) && Number.isFinite(endOffset) && endOffset <= startOffset) {{
+          return true;
+        }}
+        return !quote;
       }}
       function commenterStorageKey() {{
         return 'shared_preview_commenter_name';
@@ -1738,6 +1867,12 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       var articleEl = document.getElementById('preview-article');
       var dateEl = document.getElementById('preview-post-date');
       var bodyEl = document.getElementById('preview-post-body');
+      var globalCommentsSectionEl = document.getElementById('preview-global-comments');
+      var globalCommentsListEl = document.getElementById('preview-global-comments-list');
+      var globalCommentsEmptyEl = document.getElementById('preview-global-comments-empty');
+      var globalCommentInputEl = document.getElementById('preview-global-comment-input');
+      var globalCommentSaveBtn = document.getElementById('preview-global-comment-save');
+      var globalCommentErrorEl = document.getElementById('preview-global-comment-error');
       var commenterNameEl = document.getElementById('preview-commenter-name');
       var commentsLayerEl = document.getElementById('preview-comments-layer');
       var commentsEmptyEl = document.getElementById('preview-comments-empty');
@@ -1750,6 +1885,9 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       var pendingDeleteCommentId = '';
       var deleteErrors = {{}};
       var renderTimer = null;
+      var globalDraftText = '';
+      var globalDraftSaving = false;
+      var globalDraftError = '';
 
       function hideCommentTrigger() {{
         activeSelection = null;
@@ -1991,7 +2129,10 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         var minHeight = articleEl ? Math.max(articleEl.offsetHeight, 240) : 240;
         commentsLayerEl.style.minHeight = String(minHeight) + 'px';
 
-        var ordered = comments.slice().map(function(comment) {{
+        var inlineComments = comments.filter(function(comment) {{
+          return !isGlobalComment(comment);
+        }});
+        var ordered = inlineComments.slice().map(function(comment) {{
           return {{
             comment: comment,
             anchorTop: getCommentAnchorTop(comment)
@@ -2137,6 +2278,81 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         commentsLayerEl.style.minHeight = String(targetHeight) + 'px';
       }}
 
+      function renderGlobalComments() {{
+        if (!globalCommentsSectionEl) return;
+
+        var globalComments = comments
+          .filter(function(comment) {{ return isGlobalComment(comment); }})
+          .sort(function(a, b) {{
+            return Number(a && a.comment_id || 0) - Number(b && b.comment_id || 0);
+          }});
+
+        if (globalCommentsListEl) {{
+          globalCommentsListEl.innerHTML = '';
+
+          for (var idx = 0; idx < globalComments.length; idx += 1) {{
+            var comment = globalComments[idx];
+            var createdLabel = formatDateTimeLabel(comment.created_at || '');
+            var commenter = collapseWhitespace(comment.commenter || '') || 'Anonymous';
+            var message = String(comment.comment || '').trim();
+            var commentId = String(comment.comment_id || '');
+            var hasDeleteToken = !!deleteTokens[commentId];
+            var deleting = !!deletingCommentIds[commentId];
+            var showingDeleteConfirm = hasDeleteToken && pendingDeleteCommentId === commentId;
+            var deleteError = String(deleteErrors[commentId] || '').trim();
+            if (!message) continue;
+
+            var card = document.createElement('article');
+            card.className = 'shared-preview-global-comment-card';
+            card.innerHTML =
+              '<div class="shared-preview-comment-meta-row">' +
+                '<p class="shared-preview-comment-meta">' +
+                  escapeHtml(commenter) +
+                  (createdLabel ? ' \u00b7 ' + escapeHtml(createdLabel) : '') +
+                '</p>' +
+                (hasDeleteToken && !showingDeleteConfirm
+                  ? ('<button type="button" class="shared-preview-comment-delete" data-delete-comment="' + escapeHtml(commentId) + '"' + (deleting ? ' disabled' : '') + '>' + (deleting ? 'Deleting...' : 'Delete') + '</button>')
+                  : ''
+                ) +
+              '</div>' +
+              '<p class="shared-preview-comment-body">' + escapeHtml(message) + '</p>' +
+              (showingDeleteConfirm
+                ? (
+                  '<div class="shared-preview-comment-delete-confirm">' +
+                    '<span>Delete this comment?</span>' +
+                    '<button type="button" data-delete-confirm="' + escapeHtml(commentId) + '"' + (deleting ? ' disabled' : '') + '>' + (deleting ? 'Deleting...' : 'Confirm') + '</button>' +
+                    '<button type="button" data-delete-cancel="' + escapeHtml(commentId) + '"' + (deleting ? ' disabled' : '') + '>Cancel</button>' +
+                  '</div>'
+                )
+                : ''
+              ) +
+              (deleteError
+                ? ('<p class="shared-preview-comment-compose-error">' + escapeHtml(deleteError) + '</p>')
+                : ''
+              );
+            globalCommentsListEl.appendChild(card);
+          }}
+        }}
+
+        if (globalCommentsEmptyEl) {{
+          globalCommentsEmptyEl.style.display = globalComments.length ? 'none' : 'block';
+        }}
+
+        if (globalCommentInputEl) {{
+          if (document.activeElement !== globalCommentInputEl || globalDraftSaving) {{
+            globalCommentInputEl.value = globalDraftText;
+          }}
+          globalCommentInputEl.disabled = !!globalDraftSaving;
+        }}
+        if (globalCommentSaveBtn) {{
+          globalCommentSaveBtn.disabled = !!globalDraftSaving;
+          globalCommentSaveBtn.textContent = globalDraftSaving ? 'Saving...' : 'Save comment';
+        }}
+        if (globalCommentErrorEl) {{
+          globalCommentErrorEl.textContent = globalDraftError || '';
+        }}
+      }}
+
       function startInlineCommentDraft() {{
         if (!activeSelection) return;
         draftComment = {{
@@ -2185,29 +2401,42 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           .then(function(result) {{
             comments = result && Array.isArray(result.comments) ? result.comments : [];
             queueCommentRender();
+            renderGlobalComments();
           }})
           .catch(function() {{
             comments = [];
             queueCommentRender();
+            renderGlobalComments();
           }});
       }}
 
-      function submitComment(selection, commentText, commenter) {{
+      function submitComment(selection, commentText, commenter, options) {{
         var endpoint = commentsEndpoint();
         if (!endpoint) return Promise.reject(new Error('Preview id unavailable.'));
+        var opts = options && typeof options === 'object' ? options : {{}};
+        var isGlobal = !!opts.is_global;
+        var payload = {{
+          commenter: commenter,
+          comment: commentText
+        }};
+        if (isGlobal) {{
+          payload.is_global = true;
+          payload.comment_type = 'global';
+        }} else {{
+          if (!selection) {{
+            return Promise.reject(new Error('Highlighted text is required for inline comments.'));
+          }}
+          payload.start_offset = selection.start_offset;
+          payload.end_offset = selection.end_offset;
+          payload.quote = selection.quote;
+        }}
         return fetch(endpoint, {{
           method: 'POST',
           headers: {{
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           }},
-          body: JSON.stringify({{
-            start_offset: selection.start_offset,
-            end_offset: selection.end_offset,
-            quote: selection.quote,
-            commenter: commenter,
-            comment: commentText
-          }})
+          body: JSON.stringify(payload)
         }})
           .then(function(response) {{
             return response.json().catch(function() {{ return {{}}; }}).then(function(result) {{
@@ -2227,6 +2456,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             }}
             comments.push(result.comment);
             queueCommentRender();
+            renderGlobalComments();
             return result.comment;
           }});
       }}
@@ -2241,6 +2471,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         deletingCommentIds[commentKey] = true;
         deleteErrors[commentKey] = '';
         queueCommentRender();
+        renderGlobalComments();
 
         return fetch(endpoint, {{
           method: 'DELETE',
@@ -2269,12 +2500,14 @@ class DraftApiHandler(BaseHTTPRequestHandler):
               pendingDeleteCommentId = '';
             }}
             queueCommentRender();
+            renderGlobalComments();
           }})
           .catch(function(err) {{
             delete deletingCommentIds[commentKey];
             deleteErrors[commentKey] = err && err.message ? String(err.message) : 'Unable to delete comment.';
             pendingDeleteCommentId = commentKey;
             queueCommentRender();
+            renderGlobalComments();
             throw err;
           }});
       }}
@@ -2311,6 +2544,38 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             draftComment.error = err && err.message ? String(err.message) : 'Unable to save comment.';
             draftComment.needsFocus = true;
             queueCommentRender();
+          }});
+      }}
+
+      function saveGlobalCommentDraft() {{
+        if (globalDraftSaving) return;
+        var commentText = String(globalDraftText || '').trim();
+        if (!commentText) {{
+          globalDraftError = 'Comment text is required.';
+          renderGlobalComments();
+          return;
+        }}
+
+        globalDraftError = '';
+        globalDraftSaving = true;
+        renderGlobalComments();
+
+        submitComment(
+          null,
+          commentText,
+          currentCommenterName(),
+          {{ is_global: true }}
+        )
+          .then(function() {{
+            globalDraftText = '';
+            globalDraftSaving = false;
+            globalDraftError = '';
+            renderGlobalComments();
+          }})
+          .catch(function(err) {{
+            globalDraftSaving = false;
+            globalDraftError = err && err.message ? String(err.message) : 'Unable to save comment.';
+            renderGlobalComments();
           }});
       }}
 
@@ -2361,6 +2626,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         }});
       }}
 
+      renderGlobalComments();
       fetchComments();
 
       if (bodyEl) {{
@@ -2432,6 +2698,66 @@ class DraftApiHandler(BaseHTTPRequestHandler):
               delete deleteErrors[cancelId];
             }}
             queueCommentRender();
+            return;
+          }}
+          if (target.hasAttribute('data-delete-confirm')) {{
+            var confirmId = String(target.getAttribute('data-delete-confirm') || '');
+            if (!confirmId) return;
+            event.preventDefault();
+            deleteComment(confirmId).catch(function() {{
+              // Error is rendered inline in the card.
+            }});
+            return;
+          }}
+        }});
+      }}
+      if (globalCommentInputEl) {{
+        globalCommentInputEl.addEventListener('input', function() {{
+          globalDraftText = String(globalCommentInputEl.value || '');
+          if (globalDraftError) {{
+            globalDraftError = '';
+            renderGlobalComments();
+          }}
+        }});
+        globalCommentInputEl.addEventListener('keydown', function(event) {{
+          if (!isCommentSaveShortcut(event)) return;
+          event.preventDefault();
+          saveGlobalCommentDraft();
+        }});
+      }}
+      if (globalCommentSaveBtn) {{
+        globalCommentSaveBtn.addEventListener('click', function() {{
+          saveGlobalCommentDraft();
+        }});
+      }}
+      if (globalCommentsListEl) {{
+        globalCommentsListEl.addEventListener('click', function(event) {{
+          var target = event.target && event.target.closest
+            ? event.target.closest('[data-delete-comment], [data-delete-confirm], [data-delete-cancel]')
+            : null;
+          if (!target) return;
+
+          if (target.hasAttribute('data-delete-comment')) {{
+            var deleteId = String(target.getAttribute('data-delete-comment') || '');
+            if (!deleteId) return;
+            event.preventDefault();
+            pendingDeleteCommentId = deleteId;
+            deleteErrors[deleteId] = '';
+            queueCommentRender();
+            renderGlobalComments();
+            return;
+          }}
+          if (target.hasAttribute('data-delete-cancel')) {{
+            var cancelId = String(target.getAttribute('data-delete-cancel') || '');
+            event.preventDefault();
+            if (cancelId && pendingDeleteCommentId === cancelId) {{
+              pendingDeleteCommentId = '';
+            }}
+            if (cancelId) {{
+              delete deleteErrors[cancelId];
+            }}
+            queueCommentRender();
+            renderGlobalComments();
             return;
           }}
           if (target.hasAttribute('data-delete-confirm')) {{

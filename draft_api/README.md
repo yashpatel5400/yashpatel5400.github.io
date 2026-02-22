@@ -125,9 +125,10 @@ Requirements:
 
 `POST /api/previews/<preview_id>/comments` payload fields:
 
-- `start_offset` (required integer, character offset in rendered preview text)
-- `end_offset` (required integer, end character offset)
-- `quote` (required short text of the highlighted selection)
+- `is_global` (optional boolean; set `true` for a bottom-of-page global comment)
+- `start_offset` (required for inline comments; character offset in rendered preview text)
+- `end_offset` (required for inline comments; end character offset)
+- `quote` (required for inline comments; short text of the highlighted selection)
 - `comment` (required)
 - `commenter` (optional display name; defaults to `Anonymous`)
 
