@@ -95,6 +95,7 @@ Requirements:
 - `GET /preview/<preview_id>` (public, read-only shared preview page)
 - `GET /api/previews/<preview_id>/comments` (public, list saved preview comments)
 - `POST /api/previews/<preview_id>/comments` (public, add comment anchored to highlighted text)
+- `DELETE /api/previews/<preview_id>/comments/<comment_id>` (public, delete one comment with per-comment delete token)
 
 `PUT` payload fields:
 
@@ -129,3 +130,12 @@ Requirements:
 - `quote` (required short text of the highlighted selection)
 - `comment` (required)
 - `commenter` (optional display name; defaults to `Anonymous`)
+
+`POST /api/previews/<preview_id>/comments` response fields:
+
+- `comment` (saved comment object)
+- `delete_token` (secret token for deleting this comment later from the same client)
+
+`DELETE /api/previews/<preview_id>/comments/<comment_id>`:
+
+- Header `X-Comment-Delete-Token` required (or `?token=` query fallback)

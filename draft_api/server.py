@@ -203,6 +203,7 @@ class DraftStore:
                   quote TEXT NOT NULL DEFAULT '',
                   commenter TEXT NOT NULL DEFAULT '',
                   comment_text TEXT NOT NULL DEFAULT '',
+                  delete_token_hash TEXT NOT NULL DEFAULT '',
                   created_at TEXT NOT NULL
                 )
                 """
@@ -221,6 +222,17 @@ class DraftStore:
             if "source_post_filename" not in columns:
                 self._conn.execute(
                     "ALTER TABLE drafts ADD COLUMN source_post_filename TEXT NOT NULL DEFAULT ''"
+                )
+
+            comment_columns = {
+                row["name"]
+                for row in self._conn.execute(
+                    "PRAGMA table_info(shared_preview_comments)"
+                ).fetchall()
+            }
+            if "delete_token_hash" not in comment_columns:
+                self._conn.execute(
+                    "ALTER TABLE shared_preview_comments ADD COLUMN delete_token_hash TEXT NOT NULL DEFAULT ''"
                 )
 
             self._conn.commit()
@@ -618,6 +630,8 @@ class DraftStore:
             )
 
         created_at = now_utc_iso()
+        delete_token = secrets.token_urlsafe(20)
+        delete_token_hash = hashlib.sha256(delete_token.encode("utf-8")).hexdigest()
         now_ts = int(time.time())
         with self._lock:
             self._purge_expired_previews_locked(now_ts)
@@ -648,9 +662,9 @@ class DraftStore:
             cursor = self._conn.execute(
                 """
                 INSERT INTO shared_preview_comments (
-                  preview_id, start_offset, end_offset, quote, commenter, comment_text, created_at
+                  preview_id, start_offset, end_offset, quote, commenter, comment_text, delete_token_hash, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     preview_id,
@@ -659,6 +673,7 @@ class DraftStore:
                     quote,
                     commenter,
                     comment_text,
+                    delete_token_hash,
                     created_at,
                 ),
             )
@@ -674,7 +689,58 @@ class DraftStore:
             "commenter": commenter,
             "comment": comment_text,
             "created_at": created_at,
+            "delete_token": delete_token,
         }
+
+    def delete_shared_preview_comment(
+        self,
+        preview_id: str,
+        comment_id: int,
+        delete_token: str,
+    ) -> bool:
+        token = str(delete_token or "").strip()
+        if not token:
+            raise ValueError("Delete token is required.")
+
+        now_ts = int(time.time())
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        with self._lock:
+            self._purge_expired_previews_locked(now_ts)
+            preview_row = self._conn.execute(
+                """
+                SELECT preview_id
+                FROM shared_previews
+                WHERE preview_id = ? AND expires_at > ?
+                """,
+                (preview_id, now_ts),
+            ).fetchone()
+            if preview_row is None:
+                raise KeyError("Preview not found")
+
+            row = self._conn.execute(
+                """
+                SELECT delete_token_hash
+                FROM shared_preview_comments
+                WHERE preview_id = ? AND comment_id = ?
+                """,
+                (preview_id, int(comment_id)),
+            ).fetchone()
+            if row is None:
+                raise KeyError("Comment not found")
+
+            stored_hash = str(row["delete_token_hash"] or "").strip()
+            if not stored_hash or not hmac.compare_digest(stored_hash, token_hash):
+                raise PermissionError("Invalid delete token.")
+
+            deleted = self._conn.execute(
+                """
+                DELETE FROM shared_preview_comments
+                WHERE preview_id = ? AND comment_id = ?
+                """,
+                (preview_id, int(comment_id)),
+            ).rowcount
+            self._conn.commit()
+        return bool(deleted)
 
 
 class GitHubPublisher:
@@ -1159,6 +1225,29 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             return None
         return preview_id
 
+    def _preview_comment_delete_path(self) -> tuple[str, int] | None:
+        parsed = urllib.parse.urlparse(self.path)
+        prefix = "/api/previews/"
+        marker = "/comments/"
+        path = parsed.path
+        if not path.startswith(prefix) or marker not in path:
+            return None
+        remainder = path[len(prefix) :]
+        preview_part, comment_part = remainder.split(marker, 1)
+        preview_id = urllib.parse.unquote(preview_part.strip("/"))
+        comment_id_text = urllib.parse.unquote(comment_part.strip("/"))
+        if (
+            not preview_id
+            or "/" in preview_id
+            or not PREVIEW_ID_RE.match(preview_id)
+            or not comment_id_text.isdigit()
+        ):
+            return None
+        comment_id = int(comment_id_text)
+        if comment_id < 1:
+            return None
+        return preview_id, comment_id
+
     def _request_base_url(self) -> str:
         proto = (self.headers.get("X-Forwarded-Proto") or "http").split(",")[0].strip() or "http"
         host = (self.headers.get("Host") or "").strip()
@@ -1209,14 +1298,49 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       font-size: 0.85rem;
     }}
     .shared-preview-wrapper {{
-      max-width: 1180px;
+      max-width: 1460px;
     }}
     .shared-preview-layout {{
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
-      gap: 1.5rem;
+      grid-template-columns: minmax(0, 1.7fr) minmax(280px, 360px);
+      gap: 1.3rem;
       align-items: start;
       position: relative;
+    }}
+    .shared-preview-layout .post-article {{
+      max-width: none;
+      width: 100%;
+      margin: 0;
+    }}
+    .shared-preview-identity {{
+      margin: 0 0 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #4b5c76;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }}
+    .shared-preview-identity input {{
+      min-width: 220px;
+      max-width: 280px;
+      border: 1px solid #cfd8ea;
+      border-radius: 9px;
+      padding: 0.45rem 0.6rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 0;
+      text-transform: none;
+      color: #1f2937;
+      background: #fff;
+    }}
+    .shared-preview-identity input:focus {{
+      outline: none;
+      border-color: #3e6ddd;
+      box-shadow: 0 0 0 3px rgba(76, 114, 211, 0.2);
     }}
     .shared-preview-comments-rail {{
       position: relative;
@@ -1243,12 +1367,33 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       box-shadow: 0 8px 18px rgba(29, 52, 84, 0.08);
       padding: 0.65rem 0.7rem;
     }}
-    .shared-preview-comment-meta {{
+    .shared-preview-comment-meta-row {{
       margin: 0 0 0.3rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }}
+    .shared-preview-comment-meta {{
+      margin: 0;
       font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
       font-size: 0.8rem;
       font-weight: 600;
       color: #4f5f79;
+    }}
+    .shared-preview-comment-delete {{
+      border: 0;
+      background: transparent;
+      color: #d14b4b;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 0.1rem 0.2rem;
+      line-height: 1;
+    }}
+    .shared-preview-comment-delete:hover {{
+      color: #ad2f2f;
     }}
     .shared-preview-comment-quote {{
       margin: 0 0 0.35rem;
@@ -1266,6 +1411,60 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       color: #1f2937;
       white-space: pre-wrap;
       word-break: break-word;
+    }}
+    .shared-preview-comment-compose textarea {{
+      width: 100%;
+      min-height: 84px;
+      resize: vertical;
+      border: 1px solid #cbd6eb;
+      border-radius: 8px;
+      background: #fff;
+      color: #111827;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      padding: 0.5rem 0.55rem;
+      margin: 0 0 0.55rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+    }}
+    .shared-preview-comment-compose textarea:focus {{
+      outline: none;
+      border-color: #3e6ddd;
+      box-shadow: 0 0 0 3px rgba(76, 114, 211, 0.2);
+    }}
+    .shared-preview-comment-compose-actions {{
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin: 0 0 0.2rem;
+    }}
+    .shared-preview-comment-compose-actions button {{
+      border: 0;
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+    }}
+    .shared-preview-comment-compose-actions [data-comment-save] {{
+      background: #2f5bd3;
+      color: #fff;
+    }}
+    .shared-preview-comment-compose-actions [data-comment-save][disabled] {{
+      opacity: 0.72;
+      cursor: default;
+    }}
+    .shared-preview-comment-compose-actions [data-comment-cancel] {{
+      background: #e6ebf5;
+      color: #455369;
+    }}
+    .shared-preview-comment-compose-error {{
+      margin: 0;
+      min-height: 1.1rem;
+      color: #c23a3a;
+      font-size: 0.78rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
     }}
     .shared-preview-comment-trigger {{
       position: fixed;
@@ -1290,6 +1489,11 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       .shared-preview-layout {{
         grid-template-columns: minmax(0, 1fr);
       }}
+      .shared-preview-identity input {{
+        min-width: 170px;
+        width: 100%;
+        max-width: 100%;
+      }}
       .shared-preview-comments-rail {{
         border-left: 0;
         border-top: 1px solid #dde3ef;
@@ -1310,6 +1514,10 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       <p class="post-preview-banner">Shared draft preview. Highlight text and click <strong>Leave a comment</strong>.</p>
       <div class="shared-preview-layout" id="preview-layout">
         <article class="post-article" id="preview-article">
+          <div class="shared-preview-identity">
+            <label for="preview-commenter-name">Name</label>
+            <input id="preview-commenter-name" type="text" maxlength="80" placeholder="Your name">
+          </div>
           <p class="post-breadcrumb"><a href="{site_base}/blog/">&larr; Back to Blog</a></p>
           <h2 class="post-title">{escaped_title}</h2>
           <p class="post-date" id="preview-post-date"></p>
@@ -1375,6 +1583,73 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       function collapseWhitespace(text) {{
         return String(text || '').replace(/\\s+/g, ' ').trim();
       }}
+      function commenterStorageKey() {{
+        return 'shared_preview_commenter_name';
+      }}
+      function commentTokenStorageKey() {{
+        if (!previewId) return '';
+        return 'shared_preview_comment_tokens:' + previewId;
+      }}
+      function loadCommenterName() {{
+        try {{
+          var value = window.localStorage ? window.localStorage.getItem(commenterStorageKey()) : '';
+          return collapseWhitespace(value || '');
+        }} catch (err) {{
+          return '';
+        }}
+      }}
+      function saveCommenterName(name) {{
+        try {{
+          if (window.localStorage) {{
+            if (name) {{
+              window.localStorage.setItem(commenterStorageKey(), name);
+            }} else {{
+              window.localStorage.removeItem(commenterStorageKey());
+            }}
+          }}
+        }} catch (err) {{
+          // Ignore storage failures.
+        }}
+      }}
+      function currentCommenterName() {{
+        var value = commenterNameEl ? collapseWhitespace(commenterNameEl.value || '') : '';
+        return value || 'Anonymous';
+      }}
+      function loadDeleteTokens() {{
+        var key = commentTokenStorageKey();
+        if (!key) return {{}};
+        try {{
+          if (!window.localStorage) return {{}};
+          var raw = window.localStorage.getItem(key);
+          if (!raw) return {{}};
+          var parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== 'object') return {{}};
+          return parsed;
+        }} catch (err) {{
+          return {{}};
+        }}
+      }}
+      function saveDeleteTokens() {{
+        var key = commentTokenStorageKey();
+        if (!key) return;
+        try {{
+          if (window.localStorage) {{
+            window.localStorage.setItem(key, JSON.stringify(deleteTokens || {{}}));
+          }}
+        }} catch (err) {{
+          // Ignore storage failures.
+        }}
+      }}
+      function rememberDeleteToken(commentId, token) {{
+        if (!commentId || !token) return;
+        deleteTokens[String(commentId)] = String(token);
+        saveDeleteTokens();
+      }}
+      function forgetDeleteToken(commentId) {{
+        if (!commentId) return;
+        delete deleteTokens[String(commentId)];
+        saveDeleteTokens();
+      }}
 
       var payloadEl = document.getElementById('preview-payload');
       var payload = {{}};
@@ -1389,11 +1664,15 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       var articleEl = document.getElementById('preview-article');
       var dateEl = document.getElementById('preview-post-date');
       var bodyEl = document.getElementById('preview-post-body');
+      var commenterNameEl = document.getElementById('preview-commenter-name');
       var commentsLayerEl = document.getElementById('preview-comments-layer');
       var commentsEmptyEl = document.getElementById('preview-comments-empty');
       var commentTriggerEl = document.getElementById('preview-comment-trigger');
       var activeSelection = null;
+      var draftComment = null;
       var comments = [];
+      var deleteTokens = {{}};
+      var deletingCommentIds = {{}};
       var renderTimer = null;
 
       function hideCommentTrigger() {{
@@ -1526,19 +1805,65 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         if (!commentsLayerEl) return;
         commentsLayerEl.innerHTML = '';
 
-        var minHeight = articleEl ? Math.max(articleEl.offsetHeight, 220) : 220;
+        var minHeight = articleEl ? Math.max(articleEl.offsetHeight, 240) : 240;
         commentsLayerEl.style.minHeight = String(minHeight) + 'px';
-
-        if (!comments || comments.length < 1) {{
-          if (commentsEmptyEl) commentsEmptyEl.style.display = 'block';
-          return;
-        }}
-        if (commentsEmptyEl) commentsEmptyEl.style.display = 'none';
 
         var ordered = comments.slice().sort(function(a, b) {{
           return Number(a.comment_id || 0) - Number(b.comment_id || 0);
         }});
         var floor = 0;
+
+        if (draftComment) {{
+          var draftQuote = collapseWhitespace(
+            draftComment.selection && draftComment.selection.quote ? draftComment.selection.quote : ''
+          );
+          var draftAnchorTop = getCommentAnchorTop(draftComment.selection || null);
+          var draftTop = floor;
+          if (draftAnchorTop !== null && Number.isFinite(draftAnchorTop)) {{
+            draftTop = Math.max(floor, draftAnchorTop - 8);
+          }}
+
+          var composeCard = document.createElement('article');
+          composeCard.className = 'shared-preview-comment-card shared-preview-comment-compose';
+          composeCard.style.top = String(Math.round(draftTop)) + 'px';
+          composeCard.innerHTML =
+            '<div class="shared-preview-comment-meta-row">' +
+              '<p class="shared-preview-comment-meta">' + escapeHtml(currentCommenterName()) + ' \u00b7 new comment</p>' +
+            '</div>' +
+            (draftQuote ? '<p class="shared-preview-comment-quote">\u201c' + escapeHtml(draftQuote) + '\u201d</p>' : '') +
+            '<textarea data-compose-input placeholder="Type your comment..."></textarea>' +
+            '<div class="shared-preview-comment-compose-actions">' +
+              '<button type="button" data-comment-save>' + (draftComment.saving ? 'Saving...' : 'Save comment') + '</button>' +
+              '<button type="button" data-comment-cancel>Cancel</button>' +
+            '</div>' +
+            '<p class="shared-preview-comment-compose-error">' +
+              escapeHtml(draftComment.error || '') +
+            '</p>';
+
+          commentsLayerEl.appendChild(composeCard);
+          floor = draftTop + composeCard.offsetHeight + 12;
+
+          var composeTextarea = composeCard.querySelector('[data-compose-input]');
+          var saveBtn = composeCard.querySelector('[data-comment-save]');
+          if (composeTextarea) {{
+            composeTextarea.value = draftComment.text || '';
+            composeTextarea.disabled = !!draftComment.saving;
+            if (draftComment.needsFocus && !draftComment.saving) {{
+              composeTextarea.focus();
+              composeTextarea.setSelectionRange(composeTextarea.value.length, composeTextarea.value.length);
+              draftComment.needsFocus = false;
+            }}
+          }}
+          if (saveBtn && draftComment.saving) {{
+            saveBtn.disabled = true;
+          }}
+        }}
+
+        if ((!ordered || ordered.length < 1) && !draftComment) {{
+          if (commentsEmptyEl) commentsEmptyEl.style.display = 'block';
+        }} else if (commentsEmptyEl) {{
+          commentsEmptyEl.style.display = 'none';
+        }}
 
         for (var idx = 0; idx < ordered.length; idx += 1) {{
           var comment = ordered[idx];
@@ -1546,15 +1871,24 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           var commenter = collapseWhitespace(comment.commenter || '') || 'Anonymous';
           var quote = collapseWhitespace(comment.quote || '');
           var message = String(comment.comment || '').trim();
+          var commentId = String(comment.comment_id || '');
+          var hasDeleteToken = !!deleteTokens[commentId];
+          var deleting = !!deletingCommentIds[commentId];
           if (!message) continue;
 
           var card = document.createElement('article');
           card.className = 'shared-preview-comment-card';
           card.innerHTML =
-            '<p class="shared-preview-comment-meta">' +
-              escapeHtml(commenter) +
-              (createdLabel ? ' \u00b7 ' + escapeHtml(createdLabel) : '') +
-            '</p>' +
+            '<div class="shared-preview-comment-meta-row">' +
+              '<p class="shared-preview-comment-meta">' +
+                escapeHtml(commenter) +
+                (createdLabel ? ' \u00b7 ' + escapeHtml(createdLabel) : '') +
+              '</p>' +
+              (hasDeleteToken
+                ? ('<button type="button" class="shared-preview-comment-delete" data-delete-comment="' + escapeHtml(commentId) + '"' + (deleting ? ' disabled' : '') + '>' + (deleting ? 'Deleting...' : 'Delete') + '</button>')
+                : ''
+              ) +
+            '</div>' +
             (quote ? '<p class="shared-preview-comment-quote">\u201c' + escapeHtml(quote) + '\u201d</p>' : '') +
             '<p class="shared-preview-comment-body">' + escapeHtml(message) + '</p>';
 
@@ -1572,9 +1906,36 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         commentsLayerEl.style.minHeight = String(targetHeight) + 'px';
       }}
 
+      function startInlineCommentDraft() {{
+        if (!activeSelection) return;
+        draftComment = {{
+          selection: {{
+            start_offset: activeSelection.start_offset,
+            end_offset: activeSelection.end_offset,
+            quote: activeSelection.quote
+          }},
+          text: '',
+          error: '',
+          saving: false,
+          needsFocus: true
+        }};
+        clearSelectionRange();
+        hideCommentTrigger();
+        queueCommentRender();
+      }}
+
+      function cancelInlineCommentDraft() {{
+        draftComment = null;
+        queueCommentRender();
+      }}
+
       function commentsEndpoint() {{
         if (!previewId) return '';
         return '/api/previews/' + encodeURIComponent(previewId) + '/comments';
+      }}
+      function commentDeleteEndpoint(commentId) {{
+        if (!previewId || !commentId) return '';
+        return '/api/previews/' + encodeURIComponent(previewId) + '/comments/' + encodeURIComponent(String(commentId));
       }}
 
       function fetchComments() {{
@@ -1630,36 +1991,87 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             if (!result || !result.comment) {{
               throw new Error('Comment save failed.');
             }}
+            if (result.delete_token) {{
+              rememberDeleteToken(result.comment.comment_id, result.delete_token);
+            }}
             comments.push(result.comment);
             queueCommentRender();
             return result.comment;
           }});
       }}
 
-      function openCommentPrompt() {{
-        if (!activeSelection) return;
-        var commentText = window.prompt('Leave a comment for this text:', '');
-        if (commentText === null) return;
-        commentText = String(commentText || '').trim();
-        if (!commentText) return;
-        var commenter = window.prompt('Name (optional):', '');
-        commenter = String(commenter || '').trim() || 'Anonymous';
+      function deleteComment(commentId) {{
+        var endpoint = commentDeleteEndpoint(commentId);
+        if (!endpoint) return Promise.reject(new Error('Invalid comment id.'));
+        var token = deleteTokens[String(commentId)];
+        if (!token) return Promise.reject(new Error('Delete permission not found for this comment.'));
 
-        if (commentTriggerEl) {{
-          commentTriggerEl.disabled = true;
-          commentTriggerEl.textContent = 'Saving...';
-        }}
-        submitComment(activeSelection, commentText, commenter)
+        deletingCommentIds[String(commentId)] = true;
+        queueCommentRender();
+
+        return fetch(endpoint, {{
+          method: 'DELETE',
+          headers: {{
+            'Accept': 'application/json',
+            'X-Comment-Delete-Token': String(token)
+          }}
+        }})
+          .then(function(response) {{
+            return response.json().catch(function() {{ return {{}}; }}).then(function(result) {{
+              if (!response.ok) {{
+                var message = result && result.error ? String(result.error) : 'Unable to delete comment.';
+                throw new Error(message);
+              }}
+              return result;
+            }});
+          }})
           .then(function() {{
-            clearSelectionRange();
-            hideCommentTrigger();
+            comments = comments.filter(function(item) {{
+              return String(item && item.comment_id) !== String(commentId);
+            }});
+            forgetDeleteToken(commentId);
+            delete deletingCommentIds[String(commentId)];
+            queueCommentRender();
           }})
           .catch(function(err) {{
-            window.alert(err && err.message ? err.message : 'Unable to save comment.');
-            if (commentTriggerEl) {{
-              commentTriggerEl.disabled = false;
-              commentTriggerEl.textContent = 'Leave a comment';
+            delete deletingCommentIds[String(commentId)];
+            queueCommentRender();
+            throw err;
+          }});
+      }}
+
+      function saveInlineCommentDraft() {{
+        if (!draftComment || draftComment.saving) return;
+        var commentText = String(draftComment.text || '').trim();
+        if (!commentText) {{
+          draftComment.error = 'Comment text is required.';
+          draftComment.needsFocus = true;
+          queueCommentRender();
+          return;
+        }}
+
+        var pending = draftComment;
+        pending.error = '';
+        pending.saving = true;
+        queueCommentRender();
+
+        submitComment(
+          pending.selection,
+          commentText,
+          currentCommenterName()
+        )
+          .then(function() {{
+            if (draftComment === pending) {{
+              draftComment = null;
             }}
+            queueCommentRender();
+          }})
+          .catch(function(err) {{
+            if (draftComment !== pending) return;
+            draftComment.saving = false;
+            draftComment.error = err && err.message ? String(err.message) : 'Unable to save comment.';
+            draftComment.needsFocus = true;
+            queueCommentRender();
           }});
       }}
 
@@ -1684,6 +2096,17 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         bodyEl.innerHTML = bodyHtml;
       }}
 
+      deleteTokens = loadDeleteTokens();
+      if (commenterNameEl) {{
+        commenterNameEl.value = loadCommenterName();
+        commenterNameEl.addEventListener('input', function() {{
+          saveCommenterName(collapseWhitespace(commenterNameEl.value || ''));
+          if (draftComment) {{
+            queueCommentRender();
+          }}
+        }});
+      }}
+
       fetchComments();
 
       if (bodyEl) {{
@@ -1699,7 +2122,40 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           event.preventDefault();
         }});
         commentTriggerEl.addEventListener('click', function() {{
-          openCommentPrompt();
+          startInlineCommentDraft();
+        }});
+      }}
+      if (commentsLayerEl) {{
+        commentsLayerEl.addEventListener('input', function(event) {{
+          var inputEl = event.target && event.target.closest
+            ? event.target.closest('[data-compose-input]')
+            : null;
+          if (!inputEl || !draftComment) return;
+          draftComment.text = String(inputEl.value || '');
+        }});
+        commentsLayerEl.addEventListener('click', function(event) {{
+          var target = event.target && event.target.closest
+            ? event.target.closest('[data-comment-save], [data-comment-cancel], [data-delete-comment]')
+            : null;
+          if (!target) return;
+
+          if (target.hasAttribute('data-comment-save')) {{
+            event.preventDefault();
+            saveInlineCommentDraft();
+            return;
+          }}
+          if (target.hasAttribute('data-comment-cancel')) {{
+            event.preventDefault();
+            cancelInlineCommentDraft();
+            return;
+          }}
+          var deleteId = target.getAttribute('data-delete-comment');
+          if (!deleteId) return;
+          event.preventDefault();
+          if (!window.confirm('Delete this comment?')) return;
+          deleteComment(deleteId).catch(function(err) {{
+            window.alert(err && err.message ? err.message : 'Unable to delete comment.');
+          }});
         }});
       }}
 
@@ -1981,7 +2437,12 @@ class DraftApiHandler(BaseHTTPRequestHandler):
                     preview_comments_id,
                     payload,
                 )
-                self._send_json(200, {"comment": comment}, origin)
+                delete_token = str(comment.pop("delete_token", "")).strip()
+                self._send_json(
+                    200,
+                    {"comment": comment, "delete_token": delete_token},
+                    origin,
+                )
             except KeyError:
                 self._send_json(404, {"error": "Preview not found"}, origin)
             except ValueError as exc:
@@ -2116,6 +2577,45 @@ class DraftApiHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         origin = self.headers.get("Origin")
+        preview_comment_path = self._preview_comment_delete_path()
+        if preview_comment_path is not None:
+            preview_id, comment_id = preview_comment_path
+            delete_token = str(self.headers.get("X-Comment-Delete-Token", "")).strip()
+            if not delete_token:
+                parsed = urllib.parse.urlparse(self.path)
+                query = urllib.parse.parse_qs(parsed.query or "")
+                delete_token = str((query.get("token") or [""])[0]).strip()
+            if not delete_token:
+                self._send_json(400, {"error": "Delete token is required."}, origin)
+                return
+            try:
+                deleted = self.server.store.delete_shared_preview_comment(
+                    preview_id,
+                    comment_id,
+                    delete_token,
+                )
+                if not deleted:
+                    self._send_json(404, {"error": "Comment not found"}, origin)
+                    return
+                self._send_json(
+                    200,
+                    {"ok": True, "preview_id": preview_id, "comment_id": comment_id},
+                    origin,
+                )
+            except KeyError as exc:
+                message = str(exc).strip("'")
+                if message == "Comment not found":
+                    self._send_json(404, {"error": "Comment not found"}, origin)
+                else:
+                    self._send_json(404, {"error": "Preview not found"}, origin)
+            except PermissionError:
+                self._send_json(403, {"error": "Invalid delete token."}, origin)
+            except ValueError as exc:
+                self._send_json(400, {"error": str(exc)}, origin)
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(500, {"error": str(exc)}, origin)
+            return
+
         filename = self._post_filename_from_path()
         if filename is not None:
             if not self._authorized():
