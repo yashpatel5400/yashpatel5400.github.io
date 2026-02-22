@@ -1297,21 +1297,21 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
       font-size: 0.85rem;
     }}
-    .shared-preview-wrapper {{
+    .blog-standalone .shared-preview-wrapper {{
       width: 100%;
-      max-width: none;
+      max-width: none !important;
       margin: 0;
       padding: 0 1.1rem 0 0.95rem;
       box-sizing: border-box;
     }}
-    .shared-preview-wrapper > section {{
+    .blog-standalone .shared-preview-wrapper > section {{
       max-width: none;
       width: 100%;
       margin: 0;
     }}
     .shared-preview-layout {{
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
       gap: 1.3rem;
       align-items: start;
       position: relative;
@@ -1533,7 +1533,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       .shared-preview-layout {{
         grid-template-columns: minmax(0, 1fr);
       }}
-      .shared-preview-wrapper {{
+      .blog-standalone .shared-preview-wrapper {{
         padding-left: 0.8rem;
         padding-right: 0.8rem;
       }}
