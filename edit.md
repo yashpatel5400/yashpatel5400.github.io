@@ -48,7 +48,6 @@ sitemap: false
             <h5>Workspace</h5>
             <div class="blog-editor-library-head-actions">
               <button type="button" data-editor-new-draft>New Draft</button>
-              <button type="button" data-editor-delete-draft>Delete Draft</button>
             </div>
           </div>
 
@@ -62,7 +61,7 @@ sitemap: false
 
             <div class="blog-editor-library-pane">
               <div class="blog-editor-library-pane-head">
-                <h6>Autosaves</h6>
+                <h6>Saves</h6>
               </div>
               <ul class="blog-editor-entity-list" data-editor-autosave-list></ul>
             </div>
@@ -147,7 +146,6 @@ sitemap: false
 
     const statusEl = shell.querySelector('[data-editor-status]');
     const newDraftBtn = shell.querySelector('[data-editor-new-draft]');
-    const deleteDraftBtn = shell.querySelector('[data-editor-delete-draft]');
     const sidebarToggleBtn = shell.querySelector('[data-editor-sidebar-toggle]');
     const draftListEl = shell.querySelector('[data-editor-draft-list]');
     const autosaveListEl = shell.querySelector('[data-editor-autosave-list]');
@@ -393,6 +391,18 @@ sitemap: false
       } catch (err) {
         // no-op
       }
+      syncLockVisibility();
+    }
+
+    function shouldHideLockRow() {
+      if (state.shellVisible) return true;
+      if (!hasDraftApiConfigured() || !isSessionAuthMode()) return false;
+      return Boolean(getStoredApiToken());
+    }
+
+    function syncLockVisibility() {
+      if (!lockState) return;
+      lockState.hidden = shouldHideLockRow();
     }
 
     async function parseErrorMessage(response) {
@@ -638,6 +648,9 @@ sitemap: false
 
       state.drafts.forEach(function(draft) {
         const li = document.createElement('li');
+        const row = document.createElement('div');
+        row.className = 'blog-editor-entity-row';
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'blog-editor-entity-btn';
@@ -656,7 +669,17 @@ sitemap: false
           '<span class="blog-editor-entity-title">' + escapeHtml(title) + '</span>' +
           '<span class="blog-editor-entity-meta">' + escapeHtml(metaParts.join(' · ')) + '</span>';
 
-        li.appendChild(btn);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'blog-editor-entity-delete';
+        deleteBtn.setAttribute('data-delete-draft-id', draft.draft_id || '');
+        deleteBtn.setAttribute('aria-label', 'Delete draft "' + title + '"');
+        deleteBtn.textContent = '🗑️';
+        deleteBtn.disabled = !draft.draft_id;
+
+        row.appendChild(btn);
+        row.appendChild(deleteBtn);
+        li.appendChild(row);
         draftListEl.appendChild(li);
       });
     }
@@ -674,7 +697,7 @@ sitemap: false
       if (!state.autosaves.length) {
         const emptyItem = document.createElement('li');
         emptyItem.className = 'blog-editor-entity-empty';
-        emptyItem.textContent = 'No autosaves yet.';
+        emptyItem.textContent = 'No saves yet.';
         autosaveListEl.appendChild(emptyItem);
         return;
       }
@@ -799,7 +822,7 @@ sitemap: false
       updateContextLabel();
       setDraftSnapshotLocal(false);
       markAutosaveBaseline();
-      if (showMessage) setStatus('Loaded autosave snapshot.', 'success');
+      if (showMessage) setStatus('Loaded saved version.', 'success');
       return true;
     }
 
@@ -985,9 +1008,21 @@ sitemap: false
       if (!response.ok) {
         throw new Error(await parseErrorMessage(response));
       }
+      const result = await response.json().catch(function() {
+        return null;
+      });
+      if (result && result.autosave && typeof result.autosave.source_post_filename === 'string') {
+        state.sourcePostFilename = result.autosave.source_post_filename;
+      }
+      await fetchDraftList(false).catch(function() {
+        // no-op
+      });
       await fetchAutosaveList(false).catch(function() {
         // no-op
       });
+      updateContextLabel();
+      renderDraftList();
+      renderPostList();
       markAutosaveBaseline();
       return true;
     }
@@ -1188,8 +1223,8 @@ sitemap: false
 
     async function showShell() {
       shell.hidden = false;
-      if (lockState) lockState.hidden = true;
       state.shellVisible = true;
+      syncLockVisibility();
 
       loadDraftSnapshotLocal(false);
       if (!state.currentDraftId) {
@@ -1225,8 +1260,8 @@ sitemap: false
     function hideShell() {
       setDraftSnapshotLocal(false);
       shell.hidden = true;
-      if (lockState) lockState.hidden = false;
       state.shellVisible = false;
+      syncLockVisibility();
       setSaveButtonState('idle');
       if (autosaveRemoteTimer) {
         window.clearTimeout(autosaveRemoteTimer);
@@ -1367,9 +1402,9 @@ sitemap: false
       }
 
       try {
-        const remoteSaved = await saveDraftRemote(false, true);
+        const remoteSaved = await createAutosaveRemote(true);
         if (remoteSaved) {
-          setStatus('Draft saved to database.', 'success');
+          setStatus('Saved version to database.', 'success');
           didSave = true;
           return true;
         }
@@ -1406,35 +1441,6 @@ sitemap: false
       });
     }
 
-    if (deleteDraftBtn) {
-      deleteDraftBtn.addEventListener('click', async function() {
-        const draftId = (state.currentDraftId || '').trim();
-        if (!draftId) {
-          setStatus('No draft selected to delete.', 'error');
-          return;
-        }
-        const confirmed = window.confirm('Delete this draft and all its autosaves?');
-        if (!confirmed) return;
-
-        try {
-          const deleted = await deleteDraftRemote(draftId, true);
-          if (!deleted) {
-            setStatus('Draft not found.', 'error');
-            return;
-          }
-          startNewDraft(false);
-          if (hasDraftApiConfigured()) {
-            await refreshLibrary(false).catch(function() {
-              // no-op
-            });
-          }
-          setStatus('Draft deleted.', 'success');
-        } catch (err) {
-          setStatus(err && err.message ? err.message : 'Unable to delete draft.', 'error');
-        }
-      });
-    }
-
     if (sidebarToggleBtn) {
       sidebarToggleBtn.addEventListener('click', function() {
         toggleSidebar();
@@ -1443,6 +1449,43 @@ sitemap: false
 
     if (draftListEl) {
       draftListEl.addEventListener('click', async function(event) {
+        const deleteTarget = event.target && event.target.closest('[data-delete-draft-id]');
+        if (deleteTarget) {
+          const deleteId = (deleteTarget.getAttribute('data-delete-draft-id') || '').trim();
+          if (!deleteId) return;
+          const selectedDraft = state.drafts.find(function(item) {
+            return item && item.draft_id === deleteId;
+          });
+          const label = selectedDraft && selectedDraft.title ? selectedDraft.title : deleteId;
+          const confirmed = window.confirm('Delete draft "' + label + '" and all its saves?');
+          if (!confirmed) return;
+
+          try {
+            const deleted = await deleteDraftRemote(deleteId, true);
+            if (!deleted) {
+              setStatus('Draft not found.', 'error');
+              return;
+            }
+            const deletedCurrent = deleteId === state.currentDraftId;
+            if (deletedCurrent) {
+              startNewDraft(false);
+            }
+            if (hasDraftApiConfigured()) {
+              await fetchDraftList(false).catch(function() {
+                // no-op
+              });
+            }
+            if (deletedCurrent) {
+              state.autosaves = [];
+              renderAutosaveList();
+            }
+            setStatus('Draft deleted.', 'success');
+          } catch (err) {
+            setStatus(err && err.message ? err.message : 'Unable to delete draft.', 'error');
+          }
+          return;
+        }
+
         const target = event.target && event.target.closest('[data-draft-id]');
         if (!target) return;
         const selectedId = (target.getAttribute('data-draft-id') || '').trim();

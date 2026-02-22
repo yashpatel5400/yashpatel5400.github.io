@@ -684,16 +684,6 @@
   gap: 0.35rem;
 }
 
-.make-post-editor .blog-editor-library-head-actions [data-editor-delete-draft] {
-  border-color: #d1d5db;
-  background-color: #f3f4f6;
-  color: #374151;
-}
-
-.make-post-editor .blog-editor-library-head-actions [data-editor-delete-draft]:hover {
-  background-color: #e5e7eb;
-}
-
 .make-post-editor .blog-editor-library-head h5 {
   margin: 0;
   font-size: 0.8rem;
@@ -755,7 +745,6 @@
   width: 100%;
   border: 0;
   background: transparent;
-  border-bottom: 1px solid #edf1f7;
   text-align: left;
   padding: 0.52rem 0.56rem;
   cursor: pointer;
@@ -764,7 +753,14 @@
   gap: 0.16rem;
 }
 
-.make-post-editor .blog-editor-entity-list li:last-child .blog-editor-entity-btn {
+.make-post-editor .blog-editor-entity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  border-bottom: 1px solid #edf1f7;
+}
+
+.make-post-editor .blog-editor-entity-list li:last-child .blog-editor-entity-row {
   border-bottom: 0;
 }
 
@@ -786,6 +782,25 @@
   color: #6c7786;
   font-size: 0.76rem;
   line-height: 1.2;
+}
+
+.make-post-editor .blog-editor-entity-delete {
+  border: 0;
+  background: transparent;
+  border-left: 1px solid #edf1f7;
+  padding: 0 0.48rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: #c81e1e;
+}
+
+.make-post-editor .blog-editor-entity-delete:hover {
+  background: #fff1f2;
+}
+
+.make-post-editor .blog-editor-entity-btn.is-active + .blog-editor-entity-delete {
+  background: #edf4ff;
 }
 
 .make-post-editor .blog-editor-meta-field {
