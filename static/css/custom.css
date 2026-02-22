@@ -833,6 +833,15 @@
   background-color: #2563eb;
 }
 
+.make-post-editor .blog-editor-meta-actions [data-editor-open-preview] {
+  border-color: #64748b;
+  background-color: #64748b;
+}
+
+.make-post-editor .blog-editor-meta-actions [data-editor-open-preview]:hover {
+  background-color: #475569;
+}
+
 .make-post-editor .blog-editor-compose label {
   margin-bottom: 0.1rem;
   font-size: 0.72rem;

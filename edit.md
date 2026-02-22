@@ -88,6 +88,7 @@ sitemap: false
           </div>
           <div class="blog-editor-meta-actions">
             <button type="button" data-editor-save>Save</button>
+            <button type="button" data-editor-open-preview>Preview</button>
             <button type="button" data-editor-publish>Publish</button>
           </div>
         </div>
@@ -158,6 +159,7 @@ sitemap: false
     const bodyInput = shell.querySelector('#blog-editor-body');
     const previewEl = shell.querySelector('[data-editor-preview]');
     const saveBtn = shell.querySelector('[data-editor-save]');
+    const fullPreviewBtn = shell.querySelector('[data-editor-open-preview]');
     const publishBtn = shell.querySelector('[data-editor-publish]');
     const saveButtonDefaultLabel = saveBtn ? (saveBtn.textContent || 'Save') : 'Save';
 
@@ -1224,6 +1226,88 @@ sitemap: false
       }
     }
 
+    function buildFullPagePreviewHtml() {
+      const built = buildPostContent(true);
+      const renderedBody = built.body
+        ? renderMarkdownToHtml(built.body)
+        : '<p class="blog-editor-preview-empty">Start writing markdown on the left.</p>';
+      const dateLabel = formatDateLabel(built.date);
+      const safeTitle = escapeHtml(built.title || 'Untitled Draft');
+      const safeDate = escapeHtml(dateLabel || '');
+      const origin = window.location.origin || '';
+      const styleHref = origin + '{{ "/assets/css/style.css" | relative_url }}';
+      const customHref = origin + '{{ "/static/css/custom.css" | relative_url }}';
+      const blogHref = origin + '{{ "/blog/" | relative_url }}';
+
+      return [
+        '<!DOCTYPE html>',
+        '<html lang="en-US">',
+        '<head>',
+          '<meta charset="UTF-8">',
+          '<meta name="viewport" content="width=device-width, initial-scale=1">',
+          '<title>' + safeTitle + ' (Preview)</title>',
+          '<link rel="stylesheet" href="' + styleHref + '">',
+          '<link rel="stylesheet" href="' + customHref + '">',
+        '</head>',
+        '<body class="blog-standalone">',
+          '<div class="wrapper">',
+            '<section>',
+              '<article class="post-article">',
+                '<p class="post-breadcrumb"><a href="' + blogHref + '">&larr; Back to Blog</a></p>',
+                '<h2 class="post-title">' + safeTitle + '</h2>',
+                (safeDate ? '<p class="post-date">' + safeDate + '</p>' : ''),
+                '<div class="post-content">' + renderedBody + '</div>',
+                '<section class="post-comments">',
+                  '<h3>Comments</h3>',
+                  '<p>Comments are disabled in preview mode.</p>',
+                '</section>',
+              '</article>',
+            '</section>',
+          '</div>',
+          '<script>',
+            'window.MathJax = {',
+              'tex: {',
+                'inlineMath: [["$", "$"], ["\\\\(", "\\\\)"]],',
+                'displayMath: [["$$", "$$"], ["\\\\[", "\\\\]"]],',
+                'processEscapes: true',
+              '},',
+              'options: {',
+                'skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]',
+              '}',
+            '};',
+          '<\/script>',
+          '<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"><\/script>',
+          '<script>',
+            'window.addEventListener("load", function() {',
+              'if (window.MathJax && typeof window.MathJax.typesetPromise === "function") {',
+                'window.MathJax.typesetPromise();',
+              '}',
+            '});',
+          '<\/script>',
+        '</body>',
+        '</html>'
+      ].join('');
+    }
+
+    function openFullPagePreview() {
+      try {
+        const previewWindow = window.open('', '_blank');
+        if (!previewWindow) {
+          setStatus('Popup blocked. Allow popups to open full-page preview.', 'error');
+          return false;
+        }
+        const html = buildFullPagePreviewHtml();
+        previewWindow.document.open();
+        previewWindow.document.write(html);
+        previewWindow.document.close();
+        setStatus('Opened full-page preview in a new tab.', 'success');
+        return true;
+      } catch (err) {
+        setStatus(err && err.message ? err.message : 'Unable to open full-page preview.', 'error');
+        return false;
+      }
+    }
+
     function hexToBytes(hex) {
       if (!hex || hex.length % 2 !== 0) throw new Error('Invalid KDF salt.');
       const bytes = new Uint8Array(hex.length / 2);
@@ -1603,6 +1687,12 @@ sitemap: false
     if (saveBtn) {
       saveBtn.addEventListener('click', async function() {
         await handleSaveAction();
+      });
+    }
+
+    if (fullPreviewBtn) {
+      fullPreviewBtn.addEventListener('click', function() {
+        openFullPagePreview();
       });
     }
 
