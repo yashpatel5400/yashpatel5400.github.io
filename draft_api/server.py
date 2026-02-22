@@ -28,6 +28,10 @@ SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.md$")
 PREVIEW_ID_RE = re.compile(r"^[A-Za-z0-9_-]{16,120}$")
 DEFAULT_AUTOSAVE_HISTORY_LIMIT = 250
 DEFAULT_PREVIEW_TTL_SECONDS = 14 * 24 * 60 * 60
+MAX_PREVIEW_COMMENTER_LENGTH = 80
+MAX_PREVIEW_COMMENT_LENGTH = 2000
+MAX_PREVIEW_QUOTE_LENGTH = 600
+MAX_PREVIEW_COMMENTS_PER_LINK = 500
 
 
 def now_utc_iso() -> str:
@@ -187,6 +191,26 @@ class DraftStore:
                 """
                 CREATE INDEX IF NOT EXISTS idx_shared_previews_expires
                 ON shared_previews (expires_at)
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS shared_preview_comments (
+                  comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  preview_id TEXT NOT NULL,
+                  start_offset INTEGER NOT NULL DEFAULT 0,
+                  end_offset INTEGER NOT NULL DEFAULT 0,
+                  quote TEXT NOT NULL DEFAULT '',
+                  commenter TEXT NOT NULL DEFAULT '',
+                  comment_text TEXT NOT NULL DEFAULT '',
+                  created_at TEXT NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_shared_preview_comments_preview
+                ON shared_preview_comments (preview_id, comment_id ASC)
                 """
             )
 
@@ -471,6 +495,12 @@ class DraftStore:
     def _purge_expired_previews_locked(self, now_ts: int | None = None) -> None:
         cutoff = int(now_ts if now_ts is not None else time.time())
         self._conn.execute("DELETE FROM shared_previews WHERE expires_at <= ?", (cutoff,))
+        self._conn.execute(
+            """
+            DELETE FROM shared_preview_comments
+            WHERE preview_id NOT IN (SELECT preview_id FROM shared_previews)
+            """
+        )
 
     def create_shared_preview(
         self,
@@ -535,6 +565,116 @@ class DraftStore:
         payload = dict(row)
         payload["expires_at"] = epoch_utc_iso(int(payload.get("expires_at", now_ts)))
         return payload
+
+    def list_shared_preview_comments(
+        self,
+        preview_id: str,
+        limit: int = MAX_PREVIEW_COMMENTS_PER_LINK,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            self._purge_expired_previews_locked()
+            rows = self._conn.execute(
+                """
+                SELECT comment_id, preview_id, start_offset, end_offset, quote,
+                       commenter, comment_text AS comment, created_at
+                FROM shared_preview_comments
+                WHERE preview_id = ?
+                ORDER BY comment_id ASC
+                LIMIT ?
+                """,
+                (preview_id, max(1, min(MAX_PREVIEW_COMMENTS_PER_LINK, int(limit)))),
+            ).fetchall()
+            self._conn.commit()
+        return [dict(row) for row in rows]
+
+    def create_shared_preview_comment(
+        self,
+        preview_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        start_offset = int(payload.get("start_offset", -1))
+        end_offset = int(payload.get("end_offset", -1))
+        if start_offset < 0 or end_offset <= start_offset:
+            raise ValueError("Invalid highlighted text range.")
+
+        quote = str(payload.get("quote", "")).strip()
+        if not quote:
+            raise ValueError("Highlighted quote is required.")
+        if len(quote) > MAX_PREVIEW_QUOTE_LENGTH:
+            quote = quote[:MAX_PREVIEW_QUOTE_LENGTH].rstrip()
+
+        commenter = str(payload.get("commenter", "")).strip() or "Anonymous"
+        if len(commenter) > MAX_PREVIEW_COMMENTER_LENGTH:
+            commenter = commenter[:MAX_PREVIEW_COMMENTER_LENGTH].rstrip()
+
+        comment_text = str(payload.get("comment", "")).strip()
+        if not comment_text:
+            comment_text = str(payload.get("comment_text", "")).strip()
+        if not comment_text:
+            raise ValueError("Comment text is required.")
+        if len(comment_text) > MAX_PREVIEW_COMMENT_LENGTH:
+            raise ValueError(
+                f"Comment is too long (max {MAX_PREVIEW_COMMENT_LENGTH} characters)."
+            )
+
+        created_at = now_utc_iso()
+        now_ts = int(time.time())
+        with self._lock:
+            self._purge_expired_previews_locked(now_ts)
+
+            preview_row = self._conn.execute(
+                """
+                SELECT preview_id
+                FROM shared_previews
+                WHERE preview_id = ? AND expires_at > ?
+                """,
+                (preview_id, now_ts),
+            ).fetchone()
+            if preview_row is None:
+                raise KeyError("Preview not found")
+
+            count_row = self._conn.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM shared_preview_comments
+                WHERE preview_id = ?
+                """,
+                (preview_id,),
+            ).fetchone()
+            total = int(count_row["total"] if count_row is not None else 0)
+            if total >= MAX_PREVIEW_COMMENTS_PER_LINK:
+                raise RuntimeError("Comment limit reached for this preview.")
+
+            cursor = self._conn.execute(
+                """
+                INSERT INTO shared_preview_comments (
+                  preview_id, start_offset, end_offset, quote, commenter, comment_text, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    preview_id,
+                    start_offset,
+                    end_offset,
+                    quote,
+                    commenter,
+                    comment_text,
+                    created_at,
+                ),
+            )
+            comment_id = int(cursor.lastrowid or 0)
+            self._conn.commit()
+
+        return {
+            "comment_id": comment_id,
+            "preview_id": preview_id,
+            "start_offset": start_offset,
+            "end_offset": end_offset,
+            "quote": quote,
+            "commenter": commenter,
+            "comment": comment_text,
+            "created_at": created_at,
+        }
 
 
 class GitHubPublisher:
@@ -1007,6 +1147,18 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             return None
         return preview_id
 
+    def _preview_comments_id_from_path(self) -> str | None:
+        parsed = urllib.parse.urlparse(self.path)
+        prefix = "/api/previews/"
+        suffix = "/comments"
+        path = parsed.path
+        if not path.startswith(prefix) or not path.endswith(suffix):
+            return None
+        preview_id = urllib.parse.unquote(path[len(prefix) : -len(suffix)].strip("/"))
+        if not preview_id or "/" in preview_id or not PREVIEW_ID_RE.match(preview_id):
+            return None
+        return preview_id
+
     def _request_base_url(self) -> str:
         proto = (self.headers.get("X-Forwarded-Proto") or "http").split(",")[0].strip() or "http"
         host = (self.headers.get("Host") or "").strip()
@@ -1022,13 +1174,14 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         return self._request_base_url().rstrip("/")
 
     def _render_shared_preview_page(self, preview: dict[str, Any]) -> str:
+        preview_id = str(preview.get("preview_id", "")).strip()
         title = str(preview.get("title", "")).strip() or "Untitled Draft"
         post_date = str(preview.get("date", "")).strip()
         body = str(preview.get("body", ""))
         site_base = self.server.preview_site_base or "https://ypatel.io"
         site_base = site_base.rstrip("/")
         payload_json = json.dumps(
-            {"title": title, "date": post_date, "body": body},
+            {"preview_id": preview_id, "title": title, "date": post_date, "body": body},
             ensure_ascii=False,
         ).replace("</", "<\\/")
         escaped_title = (
@@ -1040,13 +1193,13 @@ class DraftApiHandler(BaseHTTPRequestHandler):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
   <title>{escaped_title} (Shared Preview)</title>
   <link rel="stylesheet" href="{site_base}/assets/css/style.css">
   <link rel="stylesheet" href="{site_base}/static/css/custom.css">
   <style>
     .post-preview-banner {{
-      max-width: 720px;
-      margin: 0 auto 0.8rem;
+      margin: 0 0 0.8rem;
       border: 1px solid #d6e2f5;
       border-radius: 10px;
       background: #f4f8ff;
@@ -1055,20 +1208,121 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
       font-size: 0.85rem;
     }}
+    .shared-preview-wrapper {{
+      max-width: 1180px;
+    }}
+    .shared-preview-layout {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 1.5rem;
+      align-items: start;
+      position: relative;
+    }}
+    .shared-preview-comments-rail {{
+      position: relative;
+      border-left: 1px solid #dde3ef;
+      padding-left: 1rem;
+      min-height: 220px;
+    }}
+    .shared-preview-comments-layer {{
+      position: relative;
+      min-height: 220px;
+    }}
+    .shared-preview-comments-empty {{
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.9rem;
+      color: #6b7788;
+    }}
+    .shared-preview-comment-card {{
+      position: absolute;
+      left: 0;
+      right: 0;
+      border: 1px solid #d4dcec;
+      border-radius: 12px;
+      background: #f8faff;
+      box-shadow: 0 8px 18px rgba(29, 52, 84, 0.08);
+      padding: 0.65rem 0.7rem;
+    }}
+    .shared-preview-comment-meta {{
+      margin: 0 0 0.3rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #4f5f79;
+    }}
+    .shared-preview-comment-quote {{
+      margin: 0 0 0.35rem;
+      padding: 0.25rem 0.45rem;
+      border-left: 3px solid #4f7fe3;
+      border-radius: 6px;
+      background: #eaf0ff;
+      font-size: 0.83rem;
+      color: #3f5069;
+    }}
+    .shared-preview-comment-body {{
+      margin: 0;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      color: #1f2937;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }}
+    .shared-preview-comment-trigger {{
+      position: fixed;
+      z-index: 3000;
+      border: 0;
+      border-radius: 999px;
+      background: #2f5bd3;
+      color: #fff;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 0.4rem 0.65rem;
+      cursor: pointer;
+      box-shadow: 0 10px 26px rgba(34, 69, 148, 0.28);
+    }}
+    .shared-preview-comment-trigger[disabled] {{
+      opacity: 0.75;
+      cursor: default;
+    }}
+    @media (max-width: 980px) {{
+      .shared-preview-layout {{
+        grid-template-columns: minmax(0, 1fr);
+      }}
+      .shared-preview-comments-rail {{
+        border-left: 0;
+        border-top: 1px solid #dde3ef;
+        padding-left: 0;
+        padding-top: 0.85rem;
+      }}
+      .shared-preview-comment-card {{
+        position: relative;
+        top: auto !important;
+        margin-bottom: 0.65rem;
+      }}
+    }}
   </style>
 </head>
 <body class="blog-standalone">
-  <div class="wrapper">
+  <div class="wrapper shared-preview-wrapper">
     <section>
-      <p class="post-preview-banner">Shared draft preview. This page is read-only and not indexed.</p>
-      <article class="post-article">
-        <p class="post-breadcrumb"><a href="{site_base}/blog/">&larr; Back to Blog</a></p>
-        <h2 class="post-title">{escaped_title}</h2>
-        <p class="post-date" id="preview-post-date"></p>
-        <div class="post-content" id="preview-post-body"></div>
-      </article>
+      <p class="post-preview-banner">Shared draft preview. Highlight text and click <strong>Leave a comment</strong>.</p>
+      <div class="shared-preview-layout" id="preview-layout">
+        <article class="post-article" id="preview-article">
+          <p class="post-breadcrumb"><a href="{site_base}/blog/">&larr; Back to Blog</a></p>
+          <h2 class="post-title">{escaped_title}</h2>
+          <p class="post-date" id="preview-post-date"></p>
+          <div class="post-content" id="preview-post-body"></div>
+        </article>
+        <aside class="shared-preview-comments-rail">
+          <div class="shared-preview-comments-layer" id="preview-comments-layer"></div>
+          <p class="shared-preview-comments-empty" id="preview-comments-empty">No comments yet. Select text to leave one.</p>
+        </aside>
+      </div>
     </section>
   </div>
+  <button type="button" class="shared-preview-comment-trigger" id="preview-comment-trigger" hidden>Leave a comment</button>
   <script id="preview-payload" type="application/json">{payload_json}</script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
@@ -1106,6 +1360,21 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         }}
         return '<pre>' + escapeHtml(text) + '</pre>';
       }}
+      function formatDateTimeLabel(value) {{
+        if (!value) return '';
+        var parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '';
+        return parsed.toLocaleString(undefined, {{
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit'
+        }});
+      }}
+      function collapseWhitespace(text) {{
+        return String(text || '').replace(/\\s+/g, ' ').trim();
+      }}
 
       var payloadEl = document.getElementById('preview-payload');
       var payload = {{}};
@@ -1115,8 +1384,296 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         payload = {{}};
       }}
 
+      var previewId = payload.preview_id ? String(payload.preview_id) : '';
+      var layoutEl = document.getElementById('preview-layout');
+      var articleEl = document.getElementById('preview-article');
       var dateEl = document.getElementById('preview-post-date');
       var bodyEl = document.getElementById('preview-post-body');
+      var commentsLayerEl = document.getElementById('preview-comments-layer');
+      var commentsEmptyEl = document.getElementById('preview-comments-empty');
+      var commentTriggerEl = document.getElementById('preview-comment-trigger');
+      var activeSelection = null;
+      var comments = [];
+      var renderTimer = null;
+
+      function hideCommentTrigger() {{
+        activeSelection = null;
+        if (!commentTriggerEl) return;
+        commentTriggerEl.hidden = true;
+        commentTriggerEl.disabled = false;
+        commentTriggerEl.textContent = 'Leave a comment';
+      }}
+
+      function clearSelectionRange() {{
+        var sel = window.getSelection && window.getSelection();
+        if (sel && typeof sel.removeAllRanges === 'function') {{
+          try {{
+            sel.removeAllRanges();
+          }} catch (err) {{
+            // Ignore browser selection errors.
+          }}
+        }}
+      }}
+
+      function getSelectionOffsets(range) {{
+        if (!bodyEl || !range) return null;
+        var beforeStart = document.createRange();
+        var beforeEnd = document.createRange();
+        beforeStart.selectNodeContents(bodyEl);
+        beforeStart.setEnd(range.startContainer, range.startOffset);
+        beforeEnd.selectNodeContents(bodyEl);
+        beforeEnd.setEnd(range.endContainer, range.endOffset);
+        var startOffset = beforeStart.toString().length;
+        var endOffset = beforeEnd.toString().length;
+        if (!Number.isFinite(startOffset) || !Number.isFinite(endOffset) || endOffset <= startOffset) {{
+          return null;
+        }}
+        return {{ start_offset: startOffset, end_offset: endOffset }};
+      }}
+
+      function getSelectionPayload() {{
+        if (!bodyEl) return null;
+        var sel = window.getSelection && window.getSelection();
+        if (!sel || sel.rangeCount < 1 || sel.isCollapsed) return null;
+        var range = sel.getRangeAt(0);
+        if (!range || !bodyEl.contains(range.commonAncestorContainer)) return null;
+        var quote = collapseWhitespace(range.toString());
+        if (!quote) return null;
+        var offsets = getSelectionOffsets(range);
+        if (!offsets) return null;
+        var rect = range.getBoundingClientRect();
+        if (!rect || (!rect.width && !rect.height)) return null;
+        return {{
+          start_offset: offsets.start_offset,
+          end_offset: offsets.end_offset,
+          quote: quote,
+          rect: rect
+        }};
+      }}
+
+      function placeCommentTrigger(rect) {{
+        if (!commentTriggerEl || !rect) return;
+        var left = rect.left + (rect.width / 2) - 58;
+        var top = rect.bottom + 10;
+        var minLeft = 8;
+        var maxLeft = window.innerWidth - 132;
+        if (left < minLeft) left = minLeft;
+        if (left > maxLeft) left = maxLeft;
+        commentTriggerEl.style.left = String(Math.round(left)) + 'px';
+        commentTriggerEl.style.top = String(Math.round(top)) + 'px';
+        commentTriggerEl.hidden = false;
+      }}
+
+      function computeRangeFromOffsets(startOffset, endOffset) {{
+        if (!bodyEl) return null;
+        if (!Number.isFinite(startOffset) || !Number.isFinite(endOffset) || endOffset <= startOffset) {{
+          return null;
+        }}
+        var walker = document.createTreeWalker(bodyEl, NodeFilter.SHOW_TEXT);
+        var currentOffset = 0;
+        var startNode = null;
+        var endNode = null;
+        var startNodeOffset = 0;
+        var endNodeOffset = 0;
+        var node = walker.nextNode();
+        while (node) {{
+          var textLength = node.nodeValue ? node.nodeValue.length : 0;
+          var nextOffset = currentOffset + textLength;
+
+          if (!startNode && startOffset >= currentOffset && startOffset <= nextOffset) {{
+            startNode = node;
+            startNodeOffset = startOffset - currentOffset;
+          }}
+          if (!endNode && endOffset >= currentOffset && endOffset <= nextOffset) {{
+            endNode = node;
+            endNodeOffset = endOffset - currentOffset;
+          }}
+
+          if (startNode && endNode) {{
+            break;
+          }}
+          currentOffset = nextOffset;
+          node = walker.nextNode();
+        }}
+
+        if (!startNode || !endNode) return null;
+        var range = document.createRange();
+        range.setStart(startNode, startNodeOffset);
+        range.setEnd(endNode, endNodeOffset);
+        return range;
+      }}
+
+      function getCommentAnchorTop(comment) {{
+        if (!layoutEl) return null;
+        var startOffset = Number(comment.start_offset);
+        var endOffset = Number(comment.end_offset);
+        var range = computeRangeFromOffsets(startOffset, endOffset);
+        if (!range) return null;
+        var rect = range.getBoundingClientRect();
+        if (!rect || (!rect.width && !rect.height)) return null;
+        var layoutRect = layoutEl.getBoundingClientRect();
+        return rect.top - layoutRect.top;
+      }}
+
+      function queueCommentRender() {{
+        if (renderTimer) {{
+          window.clearTimeout(renderTimer);
+        }}
+        renderTimer = window.setTimeout(renderComments, 50);
+      }}
+
+      function renderComments() {{
+        if (!commentsLayerEl) return;
+        commentsLayerEl.innerHTML = '';
+
+        var minHeight = articleEl ? Math.max(articleEl.offsetHeight, 220) : 220;
+        commentsLayerEl.style.minHeight = String(minHeight) + 'px';
+
+        if (!comments || comments.length < 1) {{
+          if (commentsEmptyEl) commentsEmptyEl.style.display = 'block';
+          return;
+        }}
+        if (commentsEmptyEl) commentsEmptyEl.style.display = 'none';
+
+        var ordered = comments.slice().sort(function(a, b) {{
+          return Number(a.comment_id || 0) - Number(b.comment_id || 0);
+        }});
+        var floor = 0;
+
+        for (var idx = 0; idx < ordered.length; idx += 1) {{
+          var comment = ordered[idx];
+          var createdLabel = formatDateTimeLabel(comment.created_at || '');
+          var commenter = collapseWhitespace(comment.commenter || '') || 'Anonymous';
+          var quote = collapseWhitespace(comment.quote || '');
+          var message = String(comment.comment || '').trim();
+          if (!message) continue;
+
+          var card = document.createElement('article');
+          card.className = 'shared-preview-comment-card';
+          card.innerHTML =
+            '<p class="shared-preview-comment-meta">' +
+              escapeHtml(commenter) +
+              (createdLabel ? ' \u00b7 ' + escapeHtml(createdLabel) : '') +
+            '</p>' +
+            (quote ? '<p class="shared-preview-comment-quote">\u201c' + escapeHtml(quote) + '\u201d</p>' : '') +
+            '<p class="shared-preview-comment-body">' + escapeHtml(message) + '</p>';
+
+          var top = floor;
+          var anchorTop = getCommentAnchorTop(comment);
+          if (anchorTop !== null && Number.isFinite(anchorTop)) {{
+            top = Math.max(floor, anchorTop - 8);
+          }}
+          card.style.top = String(Math.round(top)) + 'px';
+          commentsLayerEl.appendChild(card);
+          floor = top + card.offsetHeight + 12;
+        }}
+
+        var targetHeight = Math.max(minHeight, floor + 10);
+        commentsLayerEl.style.minHeight = String(targetHeight) + 'px';
+      }}
+
+      function commentsEndpoint() {{
+        if (!previewId) return '';
+        return '/api/previews/' + encodeURIComponent(previewId) + '/comments';
+      }}
+
+      function fetchComments() {{
+        var endpoint = commentsEndpoint();
+        if (!endpoint) return Promise.resolve();
+        return fetch(endpoint, {{
+          method: 'GET',
+          headers: {{ 'Accept': 'application/json' }}
+        }})
+          .then(function(response) {{
+            if (!response.ok) {{
+              throw new Error('Unable to load comments.');
+            }}
+            return response.json();
+          }})
+          .then(function(result) {{
+            comments = result && Array.isArray(result.comments) ? result.comments : [];
+            queueCommentRender();
+          }})
+          .catch(function() {{
+            comments = [];
+            queueCommentRender();
+          }});
+      }}
+
+      function submitComment(selection, commentText, commenter) {{
+        var endpoint = commentsEndpoint();
+        if (!endpoint) return Promise.reject(new Error('Preview id unavailable.'));
+        return fetch(endpoint, {{
+          method: 'POST',
+          headers: {{
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }},
+          body: JSON.stringify({{
+            start_offset: selection.start_offset,
+            end_offset: selection.end_offset,
+            quote: selection.quote,
+            commenter: commenter,
+            comment: commentText
+          }})
+        }})
+          .then(function(response) {{
+            return response.json().catch(function() {{ return {{}}; }}).then(function(result) {{
+              if (!response.ok) {{
+                var message = result && result.error ? String(result.error) : 'Unable to save comment.';
+                throw new Error(message);
+              }}
+              return result;
+            }});
+          }})
+          .then(function(result) {{
+            if (!result || !result.comment) {{
+              throw new Error('Comment save failed.');
+            }}
+            comments.push(result.comment);
+            queueCommentRender();
+            return result.comment;
+          }});
+      }}
+
+      function openCommentPrompt() {{
+        if (!activeSelection) return;
+        var commentText = window.prompt('Leave a comment for this text:', '');
+        if (commentText === null) return;
+        commentText = String(commentText || '').trim();
+        if (!commentText) return;
+        var commenter = window.prompt('Name (optional):', '');
+        commenter = String(commenter || '').trim() || 'Anonymous';
+
+        if (commentTriggerEl) {{
+          commentTriggerEl.disabled = true;
+          commentTriggerEl.textContent = 'Saving...';
+        }}
+        submitComment(activeSelection, commentText, commenter)
+          .then(function() {{
+            clearSelectionRange();
+            hideCommentTrigger();
+          }})
+          .catch(function(err) {{
+            window.alert(err && err.message ? err.message : 'Unable to save comment.');
+            if (commentTriggerEl) {{
+              commentTriggerEl.disabled = false;
+              commentTriggerEl.textContent = 'Leave a comment';
+            }}
+          }});
+      }}
+
+      function refreshSelectionAction() {{
+        if (!previewId) return;
+        var selection = getSelectionPayload();
+        if (!selection) {{
+          hideCommentTrigger();
+          return;
+        }}
+        activeSelection = selection;
+        placeCommentTrigger(selection.rect);
+      }}
+
       if (dateEl) {{
         dateEl.textContent = formatDateLabel(payload.date || '');
       }}
@@ -1126,6 +1683,46 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           : '<p class="blog-editor-preview-empty">No content yet.</p>';
         bodyEl.innerHTML = bodyHtml;
       }}
+
+      fetchComments();
+
+      if (bodyEl) {{
+        bodyEl.addEventListener('mouseup', function() {{
+          window.setTimeout(refreshSelectionAction, 0);
+        }});
+        bodyEl.addEventListener('keyup', function() {{
+          window.setTimeout(refreshSelectionAction, 0);
+        }});
+      }}
+      if (commentTriggerEl) {{
+        commentTriggerEl.addEventListener('mousedown', function(event) {{
+          event.preventDefault();
+        }});
+        commentTriggerEl.addEventListener('click', function() {{
+          openCommentPrompt();
+        }});
+      }}
+
+      document.addEventListener('scroll', function() {{
+        queueCommentRender();
+      }}, {{ passive: true }});
+      window.addEventListener('resize', queueCommentRender);
+      document.addEventListener('selectionchange', function() {{
+        var sel = window.getSelection && window.getSelection();
+        if (!sel || sel.rangeCount < 1 || sel.isCollapsed) {{
+          hideCommentTrigger();
+        }}
+      }});
+
+      if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {{
+        document.fonts.ready.then(queueCommentRender).catch(function() {{}});
+      }}
+      if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {{
+        window.MathJax.startup.promise.then(function() {{
+          queueCommentRender();
+        }}).catch(function() {{}});
+      }}
+      window.setTimeout(queueCommentRender, 180);
     }})();
   </script>
   <script>
@@ -1210,6 +1807,16 @@ class DraftApiHandler(BaseHTTPRequestHandler):
                 self._send_html(404, self._render_preview_not_found_page(), origin)
                 return
             self._send_html(200, self._render_shared_preview_page(preview), origin)
+            return
+
+        preview_comments_id = self._preview_comments_id_from_path()
+        if preview_comments_id is not None:
+            preview = self.server.store.get_shared_preview(preview_comments_id)
+            if preview is None:
+                self._send_json(404, {"error": "Preview not found"}, origin)
+                return
+            comments = self.server.store.list_shared_preview_comments(preview_comments_id)
+            self._send_json(200, {"comments": comments}, origin)
             return
 
         if parsed.path == "/health":
@@ -1330,6 +1937,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         parsed = urllib.parse.urlparse(self.path)
         autosave_route = self._draft_autosave_path()
+        preview_comments_id = self._preview_comments_id_from_path()
 
         if parsed.path == "/api/session":
             if not self.server.auth_manager.supports_session:
@@ -1360,6 +1968,28 @@ class DraftApiHandler(BaseHTTPRequestHandler):
                 {"token": token, "expires_in": self.server.auth_manager.session_ttl_seconds},
                 origin,
             )
+            return
+
+        if preview_comments_id is not None:
+            try:
+                payload = self._read_json()
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(400, {"error": f"Invalid JSON payload: {exc}"}, origin)
+                return
+            try:
+                comment = self.server.store.create_shared_preview_comment(
+                    preview_comments_id,
+                    payload,
+                )
+                self._send_json(200, {"comment": comment}, origin)
+            except KeyError:
+                self._send_json(404, {"error": "Preview not found"}, origin)
+            except ValueError as exc:
+                self._send_json(400, {"error": str(exc)}, origin)
+            except RuntimeError as exc:
+                self._send_json(429, {"error": str(exc)}, origin)
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(500, {"error": str(exc)}, origin)
             return
 
         if autosave_route is not None:

@@ -93,6 +93,8 @@ Requirements:
 - `POST /api/publish` (Bearer token)
 - `POST /api/previews` (Bearer token, create shareable preview link)
 - `GET /preview/<preview_id>` (public, read-only shared preview page)
+- `GET /api/previews/<preview_id>/comments` (public, list saved preview comments)
+- `POST /api/previews/<preview_id>/comments` (public, add comment anchored to highlighted text)
 
 `PUT` payload fields:
 
@@ -119,3 +121,11 @@ Requirements:
 - `filename`
 - `markdown`
 - `source_post_filename` (optional)
+
+`POST /api/previews/<preview_id>/comments` payload fields:
+
+- `start_offset` (required integer, character offset in rendered preview text)
+- `end_offset` (required integer, end character offset)
+- `quote` (required short text of the highlighted selection)
+- `comment` (required)
+- `commenter` (optional display name; defaults to `Anonymous`)
