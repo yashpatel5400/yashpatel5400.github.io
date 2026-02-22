@@ -1311,7 +1311,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     }}
     .shared-preview-layout {{
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+      grid-template-columns: minmax(0, 1.75fr) minmax(340px, 1fr);
       gap: 1.3rem;
       align-items: start;
       position: relative;
@@ -1528,6 +1528,14 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     .shared-preview-comment-trigger[disabled] {{
       opacity: 0.75;
       cursor: default;
+    }}
+    ::highlight(shared-preview-commented) {{
+      background: rgba(69, 108, 214, 0.2);
+      color: inherit;
+    }}
+    ::highlight(shared-preview-draft) {{
+      background: rgba(69, 108, 214, 0.3);
+      color: inherit;
     }}
     @media (max-width: 980px) {{
       .shared-preview-layout {{
@@ -1851,6 +1859,46 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         renderTimer = window.setTimeout(renderComments, 50);
       }}
 
+      function renderCommentHighlights(orderedComments) {{
+        if (!window.CSS || !window.CSS.highlights || typeof window.Highlight !== 'function') {{
+          return;
+        }}
+        try {{
+          window.CSS.highlights.delete('shared-preview-commented');
+          window.CSS.highlights.delete('shared-preview-draft');
+
+          var commentedHighlight = new window.Highlight();
+          var list = Array.isArray(orderedComments) ? orderedComments : [];
+          for (var i = 0; i < list.length; i += 1) {{
+            var comment = list[i];
+            var range = computeRangeFromOffsets(
+              Number(comment && comment.start_offset),
+              Number(comment && comment.end_offset)
+            );
+            if (range) {{
+              commentedHighlight.add(range);
+            }}
+          }}
+          if (commentedHighlight.size > 0) {{
+            window.CSS.highlights.set('shared-preview-commented', commentedHighlight);
+          }}
+
+          if (draftComment && draftComment.selection) {{
+            var draftRange = computeRangeFromOffsets(
+              Number(draftComment.selection.start_offset),
+              Number(draftComment.selection.end_offset)
+            );
+            if (draftRange) {{
+              var draftHighlight = new window.Highlight();
+              draftHighlight.add(draftRange);
+              window.CSS.highlights.set('shared-preview-draft', draftHighlight);
+            }}
+          }}
+        }} catch (err) {{
+          // Ignore highlight API failures (older browsers).
+        }}
+      }}
+
       function renderComments() {{
         if (!commentsLayerEl) return;
         commentsLayerEl.innerHTML = '';
@@ -1861,6 +1909,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         var ordered = comments.slice().sort(function(a, b) {{
           return Number(a.comment_id || 0) - Number(b.comment_id || 0);
         }});
+        renderCommentHighlights(ordered);
         var floor = 0;
 
         if (draftComment) {{
