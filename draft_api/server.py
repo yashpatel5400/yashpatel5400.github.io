@@ -1298,7 +1298,16 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       font-size: 0.85rem;
     }}
     .shared-preview-wrapper {{
-      max-width: 1460px;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 0 1.1rem 0 0.95rem;
+      box-sizing: border-box;
+    }}
+    .shared-preview-wrapper > section {{
+      max-width: none;
+      width: 100%;
+      margin: 0;
     }}
     .shared-preview-layout {{
       display: grid;
@@ -1395,6 +1404,38 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     .shared-preview-comment-delete:hover {{
       color: #ad2f2f;
     }}
+    .shared-preview-comment-delete-confirm {{
+      margin: 0.5rem 0 0;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+      font-size: 0.78rem;
+      color: #53627b;
+    }}
+    .shared-preview-comment-delete-confirm button {{
+      border: 0;
+      border-radius: 999px;
+      padding: 0.28rem 0.58rem;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-family: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+    }}
+    .shared-preview-comment-delete-confirm [data-delete-confirm] {{
+      background: #d14b4b;
+      color: #fff;
+    }}
+    .shared-preview-comment-delete-confirm [data-delete-cancel] {{
+      background: #e6ebf5;
+      color: #455369;
+    }}
+    .shared-preview-comment-delete-confirm button[disabled] {{
+      opacity: 0.72;
+      cursor: default;
+    }}
     .shared-preview-comment-quote {{
       margin: 0 0 0.35rem;
       padding: 0.25rem 0.45rem;
@@ -1414,6 +1455,8 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     }}
     .shared-preview-comment-compose textarea {{
       width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       min-height: 84px;
       resize: vertical;
       border: 1px solid #cbd6eb;
@@ -1488,6 +1531,10 @@ class DraftApiHandler(BaseHTTPRequestHandler):
     @media (max-width: 980px) {{
       .shared-preview-layout {{
         grid-template-columns: minmax(0, 1fr);
+      }}
+      .shared-preview-wrapper {{
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
       }}
       .shared-preview-identity input {{
         min-width: 170px;
@@ -1673,6 +1720,8 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       var comments = [];
       var deleteTokens = {{}};
       var deletingCommentIds = {{}};
+      var pendingDeleteCommentId = '';
+      var deleteErrors = {{}};
       var renderTimer = null;
 
       function hideCommentTrigger() {{
@@ -1874,6 +1923,8 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           var commentId = String(comment.comment_id || '');
           var hasDeleteToken = !!deleteTokens[commentId];
           var deleting = !!deletingCommentIds[commentId];
+          var showingDeleteConfirm = hasDeleteToken && pendingDeleteCommentId === commentId;
+          var deleteError = String(deleteErrors[commentId] || '').trim();
           if (!message) continue;
 
           var card = document.createElement('article');
@@ -1884,13 +1935,27 @@ class DraftApiHandler(BaseHTTPRequestHandler):
                 escapeHtml(commenter) +
                 (createdLabel ? ' \u00b7 ' + escapeHtml(createdLabel) : '') +
               '</p>' +
-              (hasDeleteToken
+              (hasDeleteToken && !showingDeleteConfirm
                 ? ('<button type="button" class="shared-preview-comment-delete" data-delete-comment="' + escapeHtml(commentId) + '"' + (deleting ? ' disabled' : '') + '>' + (deleting ? 'Deleting...' : 'Delete') + '</button>')
                 : ''
               ) +
             '</div>' +
             (quote ? '<p class="shared-preview-comment-quote">\u201c' + escapeHtml(quote) + '\u201d</p>' : '') +
-            '<p class="shared-preview-comment-body">' + escapeHtml(message) + '</p>';
+            '<p class="shared-preview-comment-body">' + escapeHtml(message) + '</p>' +
+            (showingDeleteConfirm
+              ? (
+                '<div class="shared-preview-comment-delete-confirm">' +
+                  '<span>Delete this comment?</span>' +
+                  '<button type="button" data-delete-confirm="' + escapeHtml(commentId) + '"' + (deleting ? ' disabled' : '') + '>' + (deleting ? 'Deleting...' : 'Confirm') + '</button>' +
+                  '<button type="button" data-delete-cancel="' + escapeHtml(commentId) + '"' + (deleting ? ' disabled' : '') + '>Cancel</button>' +
+                '</div>'
+              )
+              : ''
+            ) +
+            (deleteError
+              ? ('<p class="shared-preview-comment-compose-error">' + escapeHtml(deleteError) + '</p>')
+              : ''
+            );
 
           var top = floor;
           var anchorTop = getCommentAnchorTop(comment);
@@ -2001,12 +2066,14 @@ class DraftApiHandler(BaseHTTPRequestHandler):
       }}
 
       function deleteComment(commentId) {{
-        var endpoint = commentDeleteEndpoint(commentId);
+        var commentKey = String(commentId || '');
+        var endpoint = commentDeleteEndpoint(commentKey);
         if (!endpoint) return Promise.reject(new Error('Invalid comment id.'));
-        var token = deleteTokens[String(commentId)];
+        var token = deleteTokens[commentKey];
         if (!token) return Promise.reject(new Error('Delete permission not found for this comment.'));
 
-        deletingCommentIds[String(commentId)] = true;
+        deletingCommentIds[commentKey] = true;
+        deleteErrors[commentKey] = '';
         queueCommentRender();
 
         return fetch(endpoint, {{
@@ -2027,14 +2094,20 @@ class DraftApiHandler(BaseHTTPRequestHandler):
           }})
           .then(function() {{
             comments = comments.filter(function(item) {{
-              return String(item && item.comment_id) !== String(commentId);
+              return String(item && item.comment_id) !== commentKey;
             }});
-            forgetDeleteToken(commentId);
-            delete deletingCommentIds[String(commentId)];
+            forgetDeleteToken(commentKey);
+            delete deletingCommentIds[commentKey];
+            delete deleteErrors[commentKey];
+            if (pendingDeleteCommentId === commentKey) {{
+              pendingDeleteCommentId = '';
+            }}
             queueCommentRender();
           }})
           .catch(function(err) {{
-            delete deletingCommentIds[String(commentId)];
+            delete deletingCommentIds[commentKey];
+            deleteErrors[commentKey] = err && err.message ? String(err.message) : 'Unable to delete comment.';
+            pendingDeleteCommentId = commentKey;
             queueCommentRender();
             throw err;
           }});
@@ -2135,7 +2208,7 @@ class DraftApiHandler(BaseHTTPRequestHandler):
         }});
         commentsLayerEl.addEventListener('click', function(event) {{
           var target = event.target && event.target.closest
-            ? event.target.closest('[data-comment-save], [data-comment-cancel], [data-delete-comment]')
+            ? event.target.closest('[data-comment-save], [data-comment-cancel], [data-delete-comment], [data-delete-confirm], [data-delete-cancel]')
             : null;
           if (!target) return;
 
@@ -2149,13 +2222,36 @@ class DraftApiHandler(BaseHTTPRequestHandler):
             cancelInlineCommentDraft();
             return;
           }}
-          var deleteId = target.getAttribute('data-delete-comment');
-          if (!deleteId) return;
-          event.preventDefault();
-          if (!window.confirm('Delete this comment?')) return;
-          deleteComment(deleteId).catch(function(err) {{
-            window.alert(err && err.message ? err.message : 'Unable to delete comment.');
-          }});
+          if (target.hasAttribute('data-delete-comment')) {{
+            var deleteId = String(target.getAttribute('data-delete-comment') || '');
+            if (!deleteId) return;
+            event.preventDefault();
+            pendingDeleteCommentId = deleteId;
+            deleteErrors[deleteId] = '';
+            queueCommentRender();
+            return;
+          }}
+          if (target.hasAttribute('data-delete-cancel')) {{
+            var cancelId = String(target.getAttribute('data-delete-cancel') || '');
+            event.preventDefault();
+            if (cancelId && pendingDeleteCommentId === cancelId) {{
+              pendingDeleteCommentId = '';
+            }}
+            if (cancelId) {{
+              delete deleteErrors[cancelId];
+            }}
+            queueCommentRender();
+            return;
+          }}
+          if (target.hasAttribute('data-delete-confirm')) {{
+            var confirmId = String(target.getAttribute('data-delete-confirm') || '');
+            if (!confirmId) return;
+            event.preventDefault();
+            deleteComment(confirmId).catch(function() {{
+              // Error is rendered inline in the card.
+            }});
+            return;
+          }}
         }});
       }}
 
