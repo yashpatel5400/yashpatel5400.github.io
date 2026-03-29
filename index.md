@@ -458,7 +458,25 @@ Atomic Maps Reconstruction for Cryo-EM Data with Continuous Heterogeneity<br/>
 
 Outside of my formal research projects, I still enjoy spinning up miscellaneous coding projects. Here are some highlights.
 
-<b><a href="https://yashpatel5400.github.io/intertect/" target="_blank" rel="noopener">Intertect: Learn Computer Architecture</a><a class="paper-code-link" href="https://github.com/yashpatel5400/intertect" target="_blank" rel="noopener">[Code]</a></b><br/>
+<div class="paper-entry">
+  <div class="paper-body">
+    <b><a href="https://router-agent-cyzbv.ondigitalocean.app/" target="_blank" rel="noopener">PDE Thermal Design Optimizer</a><a class="paper-code-link" href="https://github.com/yashpatel5400/router-agent" target="_blank" rel="noopener">[Code]</a><a class="paper-code-link" href="https://devpost.com/software/pde-thermal-design-optimizer" target="_blank" rel="noopener">[Devpost]</a></b><br/>
+    An AI agent that autonomously iterates on thermal designs using real PDE simulation. Describe a problem in plain English and watch the agent solve, evaluate, and optimize.<br/>
+  </div>
+  <a class="paper-video" href="https://www.youtube.com/watch?v=IER7aCKvwb4" aria-label="Watch PDE Thermal Design Optimizer demo">
+    <img src="https://img.youtube.com/vi/IER7aCKvwb4/hqdefault.jpg" alt="PDE Thermal Design Optimizer demo video thumbnail">
+  </a>
+</div>
+
+<div class="paper-entry">
+  <div class="paper-body">
+    <b><a href="https://yashpatel5400.github.io/intertect/" target="_blank" rel="noopener">Intertect: Learn Computer Architecture</a><a class="paper-code-link" href="https://github.com/yashpatel5400/intertect" target="_blank" rel="noopener">[Code]</a></b><br/>
+    Interactive exercises that guide you through building a MIPS processor in JavaScript, accessible to all technical backgrounds.<br/>
+  </div>
+  <a class="paper-video" href="https://yashpatel5400.github.io/intertect/" aria-label="Try Intertect">
+    <img src="{{ '/static/images/intertect-thumbnail.png' | relative_url }}" alt="Intertect screenshot">
+  </a>
+</div>
 <b><a href="https://ypatel.io/files/winograd.pdf" target="_blank" rel="noopener">Winograd Neural Operators</a><a class="paper-code-link" href="https://github.com/yashpatel5400/mcufno/" target="_blank" rel="noopener">[Code]</a></b><br/>
 <b><a href="http://yashpatel5400.github.io/files/light_transport_mis.pdf" target="_blank" rel="noopener">Multiple Importance Sampling in Light Transport</a><a class="paper-code-link" href="https://github.com/yashpatel5400/raytrace-montecarlo" target="_blank" rel="noopener">[Code]</a></b> <br/>
 <b><a href="https://github.com/yashpatel5400/agoric-sdk/commit/99fe4a4da207372cd70a6ec291dc36002974484f" target="_blank" rel="noopener">Chainlink Price Aggregation for Agoric</a><a class="paper-code-link" href="https://github.com/yashpatel5400/agoric-sdk/commit/99fe4a4da207372cd70a6ec291dc36002974484f" target="_blank" rel="noopener">[Code]</a></b> <br/>
