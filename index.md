@@ -25,7 +25,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <span class="timeline-duration"><strong>Jan 2026 – Present</strong></span>
 </div>
 <p class="timeline-role">Research Engineer</p>
-<p class="timeline-description">Working on post-training and search algorithms for frontier math reasoning models.</p>
+<p class="timeline-description">Running large-scale agentic post-training on 500+ GPUs with <a href="https://github.com/radixark/miles" target="_blank" rel="noopener">miles</a> (Megatron-LM training, SGLang rollouts) to train models that formally verify C and Verilog code in Lean, including building the environments and evals. Previously owned and improved the stability of the expert-iteration training pipeline for the 100B+ parameter policy/value Monte Carlo graph search model in <a href="https://arxiv.org/abs/2510.01346" target="_blank" rel="noopener">Aristotle</a>.</p>
 </div>
 </div>
 <div class="timeline-item" id="anthropic">
@@ -41,7 +41,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-role">Research Engineer, AI Safety Fellowship</p>
 <p class="timeline-description">
-          Working on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a> by creating an embodied robotics eval harness in Mujoco. Selected as one of 32 researchers out of 2,000+ applicants.
+          Worked on the safety of frontier models on the <a href="https://red.anthropic.com/" target="_blank" rel="noopener">Frontier Red Team</a> by creating an embodied robotics eval harness in MuJoCo. Selected as one of 32 researchers out of 2,000+ applicants.
         </p>
 </div>
 </div>
@@ -63,7 +63,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
           <i class="timeline-question">
           How can we design principled uncertainty estimates for black-box models and use such uncertainty optimally for decision-making?
           </i>
-          I am currently in the midst of formalizing (using <a href="https://lean-lang.org/">Lean</a>) and packaging my research work in my <a href="https://ypatel.io/leanpaper/">LeanPaper</a> project. Some highlights:
+          Some highlights:
           <ul class="timeline-description-list">
           <li>Conformally Robust Decision Making [<a href="http://yashpatel5400.github.io/static/files/thesis_phd.pdf">PhD Thesis</a>] </li>
           <li>Outstanding First-Year Ph.D. Student Award (2022) </li>
@@ -85,7 +85,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-subitem-role">Data Science PhD Intern, Simulations · <a class="timeline-mentor" href="https://amansinha.com/" rel="noopener" target="_blank">Aman Sinha</a></p>
 <p class="timeline-subitem-note">
-                Implemented an ADMM-based distributed convex optimization algorithm in C++ for importance sampling of rare events to achieve a 20x speedup in the eval pipeline.
+                Implemented an ADMM-based distributed convex optimization algorithm in C++ for importance sampling of rare events, achieving a 20x speedup in the eval pipeline.
               </p>
 </div>
 </div>
@@ -102,7 +102,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-subitem-role">Machine Learning Research Co-op · <a class="timeline-mentor" href="https://scholar.google.com/citations?user=wkPH71QAAAAJ&amp;hl=en" rel="noopener" target="_blank">Russell Izadi</a>, <a class="timeline-mentor" href="https://zangsir.github.io/" rel="noopener" target="_blank">Shuo Zhang</a></p>
 <p class="timeline-subitem-note">
-                Implemented SAC and PPO methods for adaptive-FIR noise cancellation (PyTorch). Developed novel transformer-based approach for Wiener filter adaptation that outperforms FxLMS (10% dB reduction). Performed linear system identification and analyzed transfer functions to assess ML filtering.
+                Implemented SAC and PPO for adaptive-FIR noise cancellation (PyTorch). Developed a novel transformer-based Wiener filter adaptation that outperforms FxLMS by 10% in noise reduction (dB). Performed linear system identification and analyzed transfer functions to assess ML filtering.
               </p>
 </div>
 </div>
@@ -124,9 +124,9 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <p class="timeline-description">
           At Facebook, I worked on a number of projects, generally in 3D rendering and reconstruction. Some highlights:
           <ul class="timeline-description-list">
-<li>Designed and implemented novel real-time (72 FPS) novel dynamic object reconstruction algorithm for 300k+ vertex meshes in Unity HLSL/C# based on linear-blend skinning (LBS)</li>
-<li>Implemented real-time (72 FPS) point cloud, dense mesh, and TSDFs (KinectFusion) scene reconstruction &amp; rendering on HMDs &amp; lenticular displays with C++/OpenGL/GLES/OpenCL.</li>
-<li>Implemented deep learning model (PyTorch) and optimized via Qualcomm SNPE &amp; QAT to run at 30 FPS on Qualcomm SoC for Portal platforms. Added translation support for quantized nodes in PyTorch-JIT to Caffe2.</li>
+<li>Designed and implemented a novel real-time (72 FPS) dynamic object reconstruction algorithm for 300k+ vertex meshes in Unity HLSL/C# based on linear-blend skinning (LBS).</li>
+<li>Implemented real-time (72 FPS) point cloud, dense mesh, and TSDF (KinectFusion) scene reconstruction &amp; rendering on HMDs and lenticular displays with C++/OpenGL/GLES/OpenCL.</li>
+<li>Implemented a gaze-correction model in PyTorch and optimized it via Qualcomm SNPE and QAT to run at 30 FPS on a Qualcomm SoC for Portal. Added PyTorch-JIT-to-Caffe2 translation for quantized nodes.</li>
 <li>Added distributed rendering with Docker, RabbitMQ, and Kubernetes to <a href="https://bkcabralwebsite.appspot.com/An-Integrated-6DoF-Video-Camera-and-System-Design.pdf">Manifold</a> camera (<a href="https://github.com/facebook/facebook360_dep/tree/main" rel="noopener" target="_blank">code</a>). Reduced depth estimation time by 30%.</li>
 </ul>
 </p>
@@ -187,7 +187,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 </div>
 <p class="timeline-subitem-role">Software Engineering Intern</p>
 <p class="timeline-subitem-note">
-                Built Java Spring MVC debugging service for Kiva Picking Optimization team. Deployed globally via AWS (EC2, S3, SNS).
+                Built a Java Spring MVC debugging service for Kiva Picking Optimization team. Deployed globally via AWS (EC2, S3, SNS).
               </p>
 </div>
 </div>
@@ -301,6 +301,17 @@ My work has largely focused on developing methods with end-to-end statistical gu
   </div>
 </div>
 
+<div class="paper-entry">
+  <div class="paper-logo">
+    <img src="{{ '/static/images/logos/arxiv.png' | relative_url }}" alt="arXiv logo">
+  </div>
+  <div class="paper-body">
+    <b>Goldilocks: Optimal Importance Sampling with Constraints for Rate Estimation</b><br/>
+    <i>In Submission</i><br/>
+    <b>Patel, Y.</b>, Sinha, A.<br/>
+  </div>
+</div>
+
 <h3 align="left" id="robust_decision_making">
   Robust Decision-Making
 </h3>
@@ -358,12 +369,23 @@ My work has largely focused on developing methods with end-to-end statistical gu
 
 <div class="paper-entry">
   <div class="paper-logo">
-    <img src="{{ '/static/images/logos/arxiv.png' | relative_url }}" alt="arXiv logo">
+    <img src="{{ '/static/images/logos/acs.png' | relative_url }}" alt="ACS logo">
+  </div>
+  <div class="paper-body">
+    <b><a href="https://doi.org/10.1021/acsmeasuresciau.6c00002" target="_blank" rel="noopener">Improved Microplastic Identification from Simultaneously Collected Photothermal Infrared and Raman Spectra Using Multiview Conformal Prediction</a></b><br/>
+    <i>ACS Measurement Science Au, 2026</i><br/>
+    Parham, R.L., Ochoa Rivera, E., Ayala, A.M., Clough, M.E., <b>Patel, Y.</b>, McNeil, A.J., Tewari, A., Ault, A.P.<br/>
+  </div>
+</div>
+
+<div class="paper-entry">
+  <div class="paper-logo">
+    <img src="{{ '/static/images/logos/siam.png' | relative_url }}" alt="SIAM logo">
   </div>
   <div class="paper-body">
     <b><a href="https://arxiv.org/abs/2602.08215" target="_blank" rel="noopener">Distribution-Free Robust Predict-Then-Optimize in Function Spaces</a><a class="paper-code-link" href="https://github.com/yashpatel5400/fpo" target="_blank" rel="noopener">[Code]</a></b><br/>
-    <i>In Submission</i><br/>
-    <b>Patel, Y.*</b>, Tewari, A.<br/>
+    <i>SIAM/ASA Journal on Uncertainty Quantification (JUQ), 2026 (to appear)</i><br/>
+    <b>Patel, Y.</b>, Tewari, A.<br/>
   </div>
 </div>
 
@@ -457,16 +479,6 @@ Atomic Maps Reconstruction for Cryo-EM Data with Continuous Heterogeneity<br/>
 </h2>
 
 Outside of my formal research projects, I still enjoy spinning up miscellaneous coding projects. Here are some highlights.
-
-<div class="paper-entry">
-  <div class="paper-body">
-    <b><a href="https://router-agent-cyzbv.ondigitalocean.app/" target="_blank" rel="noopener">PDE Thermal Design Optimizer</a><a class="paper-code-link" href="https://github.com/yashpatel5400/router-agent" target="_blank" rel="noopener">[Code]</a><a class="paper-code-link" href="https://devpost.com/software/pde-thermal-design-optimizer" target="_blank" rel="noopener">[Devpost]</a></b><br/>
-    An AI agent that autonomously iterates on thermal designs using real PDE simulation. Describe a problem in plain English and watch the agent solve, evaluate, and optimize.<br/>
-  </div>
-  <a class="paper-video" href="https://www.youtube.com/watch?v=IER7aCKvwb4" aria-label="Watch PDE Thermal Design Optimizer demo">
-    <img src="https://img.youtube.com/vi/IER7aCKvwb4/hqdefault.jpg" alt="PDE Thermal Design Optimizer demo video thumbnail">
-  </a>
-</div>
 
 <div class="paper-entry">
   <div class="paper-body">
