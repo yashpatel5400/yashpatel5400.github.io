@@ -27,7 +27,7 @@ I have significant coding experience in <b>C++, Python/PyTorch, OpenGL/GLSL, Ope
 <p class="timeline-role">Research Engineer</p>
 <ul class="timeline-description-list">
 <li>Running large-scale agentic post-training on 500+ GPUs with <a href="https://github.com/radixark/miles" target="_blank" rel="noopener">miles</a> (Megatron-LM training, SGLang rollouts) to train models that formally verify C and Verilog code in Lean, including building the environments and evals.</li>
-<li>Owned and improved the stability of the expert-iteration training pipeline for the 100B+ parameter policy/value Monte Carlo graph search model in <a href="https://arxiv.org/abs/2510.01346" target="_blank" rel="noopener">Aristotle</a>.</li>
+<li>Responsible for running and improving the stability of the expert-iteration training pipeline for the 100B+ parameter policy/value Monte Carlo graph search model in <a href="https://arxiv.org/abs/2510.01346" target="_blank" rel="noopener">Aristotle</a>.</li>
 </ul>
 </div>
 </div>
